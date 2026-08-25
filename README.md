@@ -1,14 +1,15 @@
-# TechZone - Website Bán Đồ Công Nghệ & CI/CD Pipeline (Docker & GitHub Actions)
+# TheNhanShop - Phụ Kiện & Đồ Chơi Công Nghệ Tối Giản (React SPA)
 
-Dự án Frontend bán đồ công nghệ cao cấp (Laptop, Smartphone, Tai nghe, Gaming Gear, Smartwatch) được xây dựng bằng **Next.js 14**, **Tailwind CSS**, **TypeScript** và được cấu hình quy trình CI/CD hoàn chỉnh theo tài liệu hướng dẫn DevOps.
+Dự án Frontend thương mại điện tử **TheNhanShop** được xây dựng với **React 18**, **Vite**, **TypeScript**, **Tailwind CSS** và đóng gói Container qua **Docker (Nginx Alpine)** cùng quy trình **CI/CD GitHub Actions**.
 
 ---
 
-## 🌟 Tính Năng Frontend (TechZone)
-- 🛍️ **Danh mục sản phẩm đa dạng**: Laptop, Điện thoại, Tai nghe & Loa, Gaming Gear, Smartwatch.
-- 🔍 **Tìm kiếm & Bộ lọc tức thì**: Tìm kiếm theo tên sản phẩm, lọc theo danh mục.
-- 🛒 **Giỏ hàng tương tác**: Thêm sản phẩm vào giỏ, điều chỉnh số lượng, tính tổng tiền, đặt hàng giả lập.
-- ⚡ **Giao diện hiện đại, tối ưu UX/UI**: Responsive toàn diện trên Mobile, Tablet, Desktop.
+## 🌟 Điểm Nổi Bật Của TheNhanShop
+- 🎨 **Thiết kế Minimalist Tinh Tế:** Tone màu trắng - xám - đen tối giản, hiện đại, chuẩn phong cách setup công nghệ.
+- 🔍 **Xem Chi Tiết Sản Phẩm (Product Modal):** Bấm vào bất kỳ sản phẩm nào để xem ảnh lớn, thông số chi tiết, bảo hành, chọn màu sắc/phân loại và số lượng.
+- 💰 **Mức Giá Bình Dân & Hợp Lý:** Sản phẩm đa dạng từ 59.000đ đến 489.000đ phù hợp sinh viên và người dùng văn phòng.
+- 🛒 **Giỏ Hàng Tương Tác:** Thêm sản phẩm theo từng phân loại màu sắc, tăng/giảm số lượng, tính tổng tiền và thanh toán giả lập.
+- ⚡ **Siêu Nhẹ & Nhanh:** Được build bằng Vite và phục vụ qua Nginx Alpine chỉ ~25MB.
 
 ---
 
@@ -17,73 +18,31 @@ Dự án Frontend bán đồ công nghệ cao cấp (Laptop, Smartphone, Tai ngh
 ```
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml        # Workflow CI/CD tự động build & push Docker image lên Docker Hub
+│       └── deploy.yml        # CI/CD Workflow tự động build & push Docker image
 ├── src/
-│   └── app/
-│       ├── globals.css       # File CSS cấu hình Tailwind
-│       ├── layout.tsx        # Root layout Next.js
-│       └── page.tsx          # Giao diện chính cửa hàng công nghệ TechZone
-├── .dockerignore             # Bỏ qua các tệp không cần thiết khi build Docker image
-├── .gitignore                # Bỏ qua node_modules, build cache khi push Git
-├── Dockerfile                # Cấu hình Multi-stage Docker build (builder & runner)
-├── docker-compose.yml        # Khởi chạy ứng dụng dễ dàng qua Docker Compose
-├── next.config.mjs           # Cấu hình Next.js
-├── package.json              # Khai báo dependencies và scripts
-├── postcss.config.mjs        # Cấu hình PostCSS
+│   ├── App.tsx               # Component chính TheNhanShop (Shop, Modal, Cart, Filter)
+│   ├── main.tsx              # Khởi tạo React App
+│   └── index.css             # CSS Tailwind & Custom Scrollbar
+├── Dockerfile                # Multi-stage Docker build (Node 18 -> Nginx Alpine)
+├── nginx.conf                # Cấu hình Nginx phục vụ SPA trên port 80 & 3000
+├── docker-compose.yml        # Chạy dự án qua Docker Compose
+├── index.html                # HTML entry point
+├── package.json              # Khai báo React 18, Vite, Tailwind CSS
 ├── tailwind.config.ts        # Cấu hình Tailwind CSS
-└── tsconfig.json             # Cấu hình TypeScript
+├── tsconfig.json             # Cấu hình TypeScript
+└── vite.config.ts            # Cấu hình Vite
 ```
 
 ---
 
-## 🚀 Hướng Dẫn Chạy Tại Môi Trường Local
+## 🚀 Hướng Dẫn Chạy Local
 
-### Cách 1: Chạy trực tiếp bằng Node.js / npm
 ```bash
 # 1. Cài đặt thư viện
 npm install
 
-# 2. Chạy môi trường phát triển (Development)
+# 2. Chạy môi trường Dev
 npm run dev
 
 # Mở trình duyệt truy cập: http://localhost:3000
 ```
-
-### Cách 2: Chạy với Docker & Docker Compose
-```bash
-# Build và khởi chạy container
-docker-compose up --build -d
-
-# Xem log container
-docker-compose logs -f
-
-# Dừng container
-docker-compose down
-```
-
----
-
-## 🛠️ Hướng Dẫn CI/CD & Triển Khai (Theo Hướng Dẫn Bài Học)
-
-### Bước 1: Khởi tạo Git và Push lên GitHub
-```bash
-git init
-git add .
-git commit -m "feat: init techzone frontend store with docker & github actions"
-git branch -M main
-git remote add origin git@github.com:<your-username>/<your-repo-name>.git
-git push -u origin main
-```
-
-### Bước 2: Cấu hình GitHub Secrets
-Vào GitHub Repository của bạn:
-👉 **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ Chọn **New repository secret**:
-- `DOCKER_USERNAME`: Username hoặc Docker ID trên Docker Hub.
-- `DOCKER_PASSWORD`: Personal Access Token trên Docker Hub.
-
-### Bước 3: Triển khai lên Render (Web Service)
-1. Đăng nhập [Render Dashboard](https://dashboard.render.com/).
-2. Chọn **+ New** ➔ **Web Service**.
-3. Kết nối với Repository GitHub của bạn.
-4. Chọn gói **Free ($0/month)**.
-5. Render sẽ tự động build từ Dockerfile hoặc mã nguồn và cung cấp URL truy cập web.

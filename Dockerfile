@@ -1,4 +1,4 @@
-# Stage 1: Build
+# Stage 1: Build React App with Vite
 FROM node:18-alpine AS builder
 WORKDIR /app
 
@@ -8,17 +8,16 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Stage 2: Run
-FROM node:18-alpine AS runner
-WORKDIR /app
+# Stage 2: Serve static files with lightweight Nginx
+FROM nginx:alpine AS runner
+WORKDIR /usr/share/nginx/html
 
-ENV NODE_ENV=production
-ENV PORT=3000
+# Xóa file mặc định của Nginx và copy bản build từ Stage 1
+RUN rm -rf ./*
+COPY --from=builder /app/dist ./
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-
+EXPOSE 80
 EXPOSE 3000
-CMD ["npm", "start"]
+
+CMD ["nginx", "-g", "daemon off;"]
