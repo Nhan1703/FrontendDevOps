@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ShoppingCart,
   Search,
@@ -15,6 +15,12 @@ import {
   ChevronRight,
   Eye,
   SlidersHorizontal,
+  User,
+  LogOut,
+  Mail,
+  Lock,
+  EyeOff,
+  Package,
 } from "lucide-react";
 
 interface Product {
@@ -35,6 +41,12 @@ interface Product {
 interface CartItem extends Product {
   quantity: number;
   selectedColor: string;
+}
+
+interface UserProfile {
+  name: string;
+  email: string;
+  avatar?: string;
 }
 
 const PRODUCTS: Product[] = [
@@ -168,10 +180,75 @@ export default function App() {
   const [modalQuantity, setModalQuantity] = useState<number>(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Hiển thị toast
+  // Authentication states
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Auth Form states
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+
+  // Kiểm tra lưu phiên đăng nhập
+  useEffect(() => {
+    const saved = localStorage.getItem("thenhanshop_user");
+    if (saved) {
+      try {
+        setCurrentUser(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  // Xử lý Auth
+  const handleAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authMode === "login") {
+      if (!authEmail || !authPassword) {
+        showToast("Vui lòng điền đầy đủ email và mật khẩu!");
+        return;
+      }
+      const user: UserProfile = {
+        name: authEmail.split("@")[0] || "Khách Hàng",
+        email: authEmail,
+      };
+      setCurrentUser(user);
+      localStorage.setItem("thenhanshop_user", JSON.stringify(user));
+      setIsAuthModalOpen(false);
+      showToast(`Chào mừng ${user.name} đã quay trở lại!`);
+    } else {
+      if (!authName || !authEmail || !authPassword) {
+        showToast("Vui lòng điền đầy đủ thông tin đăng ký!");
+        return;
+      }
+      const user: UserProfile = {
+        name: authName,
+        email: authEmail,
+      };
+      setCurrentUser(user);
+      localStorage.setItem("thenhanshop_user", JSON.stringify(user));
+      setIsAuthModalOpen(false);
+      showToast(`Đăng ký tài khoản thành công! Xin chào ${user.name}`);
+    }
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthName("");
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("thenhanshop_user");
+    setIsUserMenuOpen(false);
+    showToast("Đã đăng xuất thành công");
   };
 
   // Mở popup chi tiết sản phẩm
@@ -181,7 +258,7 @@ export default function App() {
     setModalQuantity(1);
   };
 
-  // Thêm vào giỏ từ card
+  // Thêm nhanh vào giỏ từ card
   const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     addToCart(product, product.colors[0] || "Mặc định", 1);
@@ -203,7 +280,7 @@ export default function App() {
     showToast(`Đã thêm ${quantity} "${product.name}" vào giỏ hàng`);
   };
 
-  // Cập nhật số lượng trong giỏ
+  // Cập nhật số lượng
   const updateQuantity = (id: number, color: string, delta: number) => {
     setCart((prev) =>
       prev
@@ -262,7 +339,7 @@ export default function App() {
       {/* Top Notification Bar */}
       <div className="bg-neutral-900 text-neutral-300 text-[11px] py-1.5 px-4 text-center tracking-wide font-normal flex items-center justify-center gap-2">
         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-        <span>Ưu đãi khai trương TheNhanShop: Miễn phí vận chuyển toàn quốc cho mọi đơn từ 200k</span>
+        <span>Ưu đãi TheNhanShop: Miễn phí vận chuyển toàn quốc cho mọi đơn từ 200k</span>
       </div>
 
       {/* Header */}
@@ -305,19 +382,79 @@ export default function App() {
             )}
           </div>
 
-          {/* Cart Action */}
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all relative"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            <span className="hidden md:inline">Giỏ hàng</span>
-            {totalCartCount > 0 && (
-              <span className="bg-neutral-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center">
-                {totalCartCount}
-              </span>
+          {/* Right Actions: Auth + Cart */}
+          <div className="flex items-center gap-2.5">
+            {/* User Account / Auth Button */}
+            {currentUser ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2 py-1.5 px-3 rounded-lg hover:bg-neutral-100 text-xs font-semibold text-neutral-800 transition-all border border-neutral-200"
+                >
+                  <div className="w-5 h-5 rounded-full bg-neutral-900 text-white text-[10px] flex items-center justify-center uppercase font-bold">
+                    {currentUser.name.charAt(0)}
+                  </div>
+                  <span className="max-w-[100px] truncate hidden md:inline">
+                    {currentUser.name}
+                  </span>
+                </button>
+
+                {/* Dropdown menu */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-neutral-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-3.5 py-2 border-b border-neutral-100">
+                      <p className="text-xs font-bold text-neutral-900 truncate">
+                        {currentUser.name}
+                      </p>
+                      <p className="text-[10px] text-neutral-400 truncate">
+                        {currentUser.email}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsCartOpen(true);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Package className="w-3.5 h-3.5" /> Đơn hàng của tôi
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-3.5 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                    >
+                      <LogOut className="w-3.5 h-3.5" /> Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setAuthMode("login");
+                  setIsAuthModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 transition-all"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Đăng nhập</span>
+              </button>
             )}
-          </button>
+
+            {/* Cart Button */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all relative"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span className="hidden md:inline">Giỏ hàng</span>
+              {totalCartCount > 0 && (
+                <span className="bg-neutral-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                  {totalCartCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -471,6 +608,160 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Modal Đăng Nhập & Đăng Ký */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setIsAuthModalOpen(false)}
+            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm"
+          ></div>
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 z-10 animate-in zoom-in-95 duration-200 border border-neutral-200">
+            <button
+              onClick={() => setIsAuthModalOpen(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-700 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header Form */}
+            <div className="text-center mb-6">
+              <div className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center mx-auto mb-3 font-bold text-base">
+                TN
+              </div>
+              <h3 className="text-lg font-extrabold text-neutral-950">
+                {authMode === "login" ? "Chào mừng trở lại!" : "Tạo tài khoản mới"}
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1">
+                {authMode === "login"
+                  ? "Đăng nhập để nhận ưu đãi và theo dõi đơn hàng"
+                  : "Trở thành thành viên TheNhanShop ngay hôm nay"}
+              </p>
+            </div>
+
+            {/* Switch Tabs */}
+            <div className="flex bg-neutral-100 p-1 rounded-xl mb-5">
+              <button
+                onClick={() => setAuthMode("login")}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  authMode === "login"
+                    ? "bg-white text-neutral-950 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-800"
+                }`}
+              >
+                Đăng nhập
+              </button>
+              <button
+                onClick={() => setAuthMode("register")}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  authMode === "register"
+                    ? "bg-white text-neutral-950 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-800"
+                }`}
+              >
+                Đăng ký
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+              {authMode === "register" && (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Họ và tên
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      placeholder="Nguyễn Văn A"
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="ban@example.com"
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-9 pr-9 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {authMode === "login" && (
+                <div className="flex items-center justify-between text-[11px] pt-1">
+                  <label className="flex items-center gap-1.5 text-neutral-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      defaultChecked
+                      className="rounded border-neutral-300 text-neutral-900 focus:ring-0"
+                    />
+                    Ghi nhớ đăng nhập
+                  </label>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      showToast("Vui lòng liên hệ Admin qua email để cấp lại mật khẩu!");
+                    }}
+                    className="text-neutral-900 font-semibold hover:underline"
+                  >
+                    Quên mật khẩu?
+                  </a>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full mt-2 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+              >
+                {authMode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Xem Chi Tiết Sản Phẩm */}
       {selectedProduct && (
@@ -734,8 +1025,9 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => {
+                    const recipient = currentUser ? currentUser.name : "quý khách";
                     alert(
-                      "🎉 Đặt hàng thành công tại TheNhanShop! Đơn hàng sẽ được đóng gói và giao sớm nhất."
+                      `🎉 Đặt hàng thành công! Cảm ơn ${recipient} đã tin tưởng ủng hộ TheNhanShop.`
                     );
                     setCart([]);
                     setIsCartOpen(false);
