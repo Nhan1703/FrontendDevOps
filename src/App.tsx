@@ -65,8 +65,10 @@ export interface CartItem extends Product {
 }
 
 export interface UserProfile {
+  id?: string;
   name: string;
   email: string;
+  phone?: string;
   avatar?: string;
   role?: "admin" | "user";
 }
@@ -266,6 +268,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  userId?: string;
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
@@ -784,6 +787,10 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
+  const [checkoutPhone, setCheckoutPhone] = useState("");
+  const [checkoutAddress, setCheckoutAddress] = useState("");
+  const [checkoutNote, setCheckoutNote] = useState("");
 
   // Customer Form states
   const [authEmail, setAuthEmail] = useState("");
@@ -923,23 +930,32 @@ export default function App() {
       setCustomerUser(customer);
       localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
 
-      // Tự động thêm vào danh sách Quản lý người dùng trong Admin
+      // Tự động thêm vào danh sách Quản lý người dùng trong Admin & SQL Server
+      const nextUserId = `USR-${String(appUsers.length + 1).padStart(3, "0")}`;
+      const newCustomerUser: AppUser = {
+        id: nextUserId,
+        name: customer.name,
+        email: customer.email,
+        password: authPassword.trim() || "kh123",
+        role: "customer",
+        status: "active",
+        createdAt: new Date().toLocaleDateString("vi-VN"),
+        ordersCount: 0,
+      };
+
       setAppUsers((prev) => {
         if (prev.some((u) => u.email.toLowerCase() === customer.email.toLowerCase())) {
           return prev;
         }
-        const newUser: AppUser = {
-          id: `USR-${String(prev.length + 1).padStart(3, "0")}`,
-          name: customer.name,
-          email: customer.email,
-          password: authPassword.trim() || "kh123",
-          role: "customer",
-          status: "active",
-          createdAt: new Date().toLocaleDateString("vi-VN"),
-          ordersCount: 0,
-        };
-        return [...prev, newUser];
+        return [...prev, newCustomerUser];
       });
+
+      // Lưu tài khoản mới vào SQL Server
+      fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCustomerUser),
+      }).catch((err) => console.error("Error creating customer in DB:", err));
 
       setIsAuthModalOpen(false);
       showToast(`Đăng ký tài khoản thành công! Xin chào ${customer.name}`);
@@ -1174,6 +1190,14 @@ export default function App() {
     if (selectedOrder && selectedOrder.id === orderId) {
       setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
     }
+
+    // Cập nhật trạng thái đơn hàng vào SQL Server
+    fetch(`/api/orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    }).catch((err) => console.error("Error updating order status in DB:", err));
+
     const statusLabels: Record<OrderStatus, string> = {
       pending: "Chờ xử lý",
       shipping: "Đang giao",
@@ -1189,6 +1213,12 @@ export default function App() {
       if (selectedOrder?.id === orderId) {
         setSelectedOrder(null);
       }
+
+      // Xóa đơn hàng khỏi SQL Server
+      fetch(`/api/orders/${orderId}`, {
+        method: "DELETE",
+      }).catch((err) => console.error("Error deleting order in DB:", err));
+
       showToast(`Đã xóa đơn hàng ${orderId}`);
     }
   };
@@ -1223,10 +1253,10 @@ export default function App() {
       showToast("Tài khoản Quản trị viên gốc cố định, không được phép khóa!");
       return;
     }
+    const nextStatus = target?.status === "active" ? "locked" : "active";
     setAppUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          const nextStatus = u.status === "active" ? "locked" : "active";
           showToast(
             nextStatus === "locked"
               ? `Đã khóa tài khoản "${u.name}"`
@@ -1237,6 +1267,12 @@ export default function App() {
         return u;
       })
     );
+    // Lưu trạng thái vào SQL Server
+    fetch(`/api/users/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    }).catch((err) => console.error("Error updating status in DB:", err));
   };
 
   const handleToggleUserRole = (userId: string) => {
@@ -1245,10 +1281,10 @@ export default function App() {
       showToast("Tài khoản Quản trị viên gốc cố định, không thể đổi vai trò!");
       return;
     }
+    const nextRole = target?.role === "admin" ? "customer" : "admin";
     setAppUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          const nextRole = u.role === "admin" ? "customer" : "admin";
           showToast(
             `Đã chuyển vai trò của "${u.name}" thành ${
               nextRole === "admin" ? "Quản trị viên" : "Khách hàng"
@@ -1259,6 +1295,12 @@ export default function App() {
         return u;
       })
     );
+    // Lưu vai trò vào SQL Server
+    fetch(`/api/users/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: nextRole }),
+    }).catch((err) => console.error("Error updating role in DB:", err));
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -1270,6 +1312,10 @@ export default function App() {
     }
     if (confirm(`Bạn có chắc muốn xóa tài khoản "${userToDelete.name}" (${userToDelete.email})?`)) {
       setAppUsers((prev) => prev.filter((u) => u.id !== userId));
+      // Xóa người dùng khỏi SQL Server
+      fetch(`/api/users/${userId}`, {
+        method: "DELETE",
+      }).catch((err) => console.error("Error deleting user in DB:", err));
       showToast(`Đã xóa người dùng "${userToDelete.name}"`);
     }
   };
@@ -1302,6 +1348,21 @@ export default function App() {
       ordersCount: 0,
     };
     setAppUsers((prev) => [newUser, ...prev]);
+
+    // Gửi API lưu người dùng vào SQL Server
+    fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newUser),
+    })
+      .then((res) => res.json())
+      .then((resData) => {
+        if (!resData.success) {
+          console.error("API Error adding user:", resData.message);
+        }
+      })
+      .catch((err) => console.error("Error adding user to DB:", err));
+
     showToast(`Đã tạo thành công tài khoản "${newUser.name}"!`);
     setIsUserModalOpen(false);
     setNewUserName("");
@@ -1350,21 +1411,32 @@ export default function App() {
 
     const defaultPass = editingUser.role === "admin" || editingUser.email === "admin" ? "admin123" : "kh123";
     const finalPassword = editUserPassword.trim() || defaultPass;
+    const updatedUser = {
+      name: editUserName.trim(),
+      email: editUserEmail.trim().toLowerCase(),
+      password: finalPassword,
+      phone: editUserPhone.trim() || undefined,
+      role: editUserRole,
+      status: editingUser.status,
+    };
 
     setAppUsers((prev) =>
       prev.map((u) =>
         u.id === editingUser.id
           ? {
               ...u,
-              name: editUserName.trim(),
-              email: editUserEmail.trim().toLowerCase(),
-              password: finalPassword,
-              phone: editUserPhone.trim() || undefined,
-              role: editUserRole,
+              ...updatedUser,
             }
           : u
       )
     );
+
+    // Lưu thông tin cập nhật vào SQL Server
+    fetch(`/api/users/${editingUser.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedUser),
+    }).catch((err) => console.error("Error updating user in DB:", err));
 
     showToast(`Đã cập nhật thông tin và mật khẩu cho "${editUserName.trim()}"!`);
     setIsEditUserModalOpen(false);
@@ -3346,7 +3418,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
-                        setIsCartOpen(true);
+                        setIsMyOrdersOpen(true);
                       }}
                       className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
                     >
@@ -3911,6 +3983,231 @@ export default function App() {
         </div>
       )}
 
+      {/* ================= MODAL: MY ORDERS (ĐƠN HÀNG CỦA TÔI) ================= */}
+      {isMyOrdersOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setIsMyOrdersOpen(false)}
+            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm"
+          ></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 border border-neutral-200 flex flex-col max-h-[88vh]">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-950">
+                    Đơn hàng của tôi
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    {customerUser
+                      ? `${customerUser.name} (${customerUser.email})`
+                      : "Theo dõi tình trạng đơn hàng của bạn"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMyOrdersOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-neutral-200/60 text-neutral-400 hover:text-neutral-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto p-4 sm:p-6 space-y-4 flex-1">
+              {!customerUser ? (
+                <div className="text-center py-10 px-4">
+                  <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto mb-3">
+                    <User className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-neutral-900 mb-1">
+                    Bạn chưa đăng nhập
+                  </h4>
+                  <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-4">
+                    Vui lòng đăng nhập vào tài khoản để xem lịch sử mua sắm và theo dõi tình trạng đơn hàng của mình.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsMyOrdersOpen(false);
+                      setAuthMode("login");
+                      setIsAuthModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                  >
+                    Đăng nhập ngay
+                  </button>
+                </div>
+              ) : (() => {
+                const myOrders = orders.filter((o) =>
+                  (customerUser.email && o.customerEmail?.toLowerCase() === customerUser.email.toLowerCase()) ||
+                  (o.userId && o.userId === customerUser.id)
+                );
+
+                if (myOrders.length === 0) {
+                  return (
+                    <div className="text-center py-12 px-4">
+                      <div className="w-14 h-14 rounded-2xl bg-neutral-100 text-neutral-300 flex items-center justify-center mx-auto mb-3">
+                        <Package className="w-7 h-7" />
+                      </div>
+                      <h4 className="text-sm font-bold text-neutral-900 mb-1">
+                        Chưa có đơn hàng nào
+                      </h4>
+                      <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-4">
+                        Tài khoản <strong>{customerUser.email}</strong> hiện chưa có đơn hàng nào. Hãy khám phá và mua sắm các sản phẩm công nghệ của chúng tôi!
+                      </p>
+                      <button
+                        onClick={() => setIsMyOrdersOpen(false)}
+                        className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                      >
+                        Khám phá sản phẩm
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between text-xs text-neutral-500 px-1">
+                      <span>Bạn có tổng cộng <strong>{myOrders.length}</strong> đơn hàng</span>
+                    </div>
+
+                    {myOrders.map((order) => {
+                      const statusConfig = {
+                        pending: {
+                          label: "Chờ xử lý",
+                          bg: "bg-amber-50 text-amber-800 border-amber-200",
+                          icon: <Clock className="w-3 h-3 text-amber-600" />,
+                        },
+                        shipping: {
+                          label: "Đang giao hàng",
+                          bg: "bg-blue-50 text-blue-800 border-blue-200",
+                          icon: <Truck className="w-3 h-3 text-blue-600" />,
+                        },
+                        delivered: {
+                          label: "Đã giao thành công",
+                          bg: "bg-emerald-50 text-emerald-800 border-emerald-200",
+                          icon: <CheckCircle2 className="w-3 h-3 text-emerald-600" />,
+                        },
+                        cancelled: {
+                          label: "Đã hủy",
+                          bg: "bg-rose-50 text-rose-800 border-rose-200",
+                          icon: <AlertCircle className="w-3 h-3 text-rose-600" />,
+                        },
+                      }[order.status] || {
+                        label: order.status,
+                        bg: "bg-neutral-100 text-neutral-700 border-neutral-200",
+                        icon: null,
+                      };
+
+                      return (
+                        <div
+                          key={order.id}
+                          className="border border-neutral-200 rounded-xl p-4 bg-white shadow-xs hover:border-neutral-300 transition-all space-y-3"
+                        >
+                          {/* Order Header */}
+                          <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-neutral-100">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs text-neutral-950">
+                                  #{order.id}
+                                </span>
+                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1 ${statusConfig.bg}`}>
+                                  {statusConfig.icon}
+                                  {statusConfig.label}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-neutral-400 mt-1 flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> {order.createdAt}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] text-neutral-400 block">Tổng tiền</span>
+                              <span className="text-sm font-extrabold text-neutral-950">
+                                {formatVND(order.totalAmount)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Shipping Info */}
+                          <div className="text-[11px] text-neutral-600 space-y-1 bg-neutral-50/70 p-2.5 rounded-lg border border-neutral-100">
+                            <div className="flex items-center gap-1.5 text-neutral-800 font-medium">
+                              <Phone className="w-3 h-3 text-neutral-400" />
+                              <span>{order.customerName} - {order.customerPhone || "Chưa cung cấp SĐT"}</span>
+                            </div>
+                            <div className="flex items-start gap-1.5 text-neutral-600">
+                              <MapPin className="w-3 h-3 text-neutral-400 mt-0.5 shrink-0" />
+                              <span>{order.customerAddress || "Địa chỉ nhận hàng toàn quốc"}</span>
+                            </div>
+                            {order.note && (
+                              <div className="flex items-start gap-1.5 pt-1.5 border-t border-neutral-200/60 text-neutral-700 italic">
+                                <FileText className="w-3 h-3 text-indigo-500 mt-0.5 shrink-0" />
+                                <span><strong>Ghi chú:</strong> {order.note}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Items List */}
+                          <div className="divide-y divide-neutral-100">
+                            {(order.items || []).map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="py-2 flex items-center justify-between text-xs first:pt-1 last:pb-1"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  {item.image && (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img
+                                      src={item.image}
+                                      alt={item.name}
+                                      className="w-10 h-10 rounded-lg object-cover bg-neutral-100 border border-neutral-200 shrink-0"
+                                    />
+                                  )}
+                                  <div>
+                                    <p className="font-semibold text-neutral-900 leading-snug">
+                                      {item.name}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      {item.selectedColor && (
+                                        <span className="text-[10px] text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
+                                          Màu: {item.selectedColor}
+                                        </span>
+                                      )}
+                                      <span className="text-[10px] text-neutral-400">
+                                        SL: x{item.quantity}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-right font-bold text-neutral-900 shrink-0">
+                                  {formatVND(item.price * item.quantity)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-neutral-100 bg-neutral-50/50 flex justify-end">
+              <button
+                onClick={() => setIsMyOrdersOpen(false)}
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ================= DRAWER: CART ================= */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end">
@@ -4006,16 +4303,64 @@ export default function App() {
 
             {/* Footer */}
             {cart.length > 0 && (
-              <div className="p-4 border-t border-neutral-200 bg-neutral-50 space-y-3">
-                <div className="flex justify-between items-center text-xs font-bold text-neutral-900">
+              <div className="p-4 border-t border-neutral-200 bg-neutral-50 space-y-3 overflow-y-auto max-h-[50vh]">
+                <div className="flex justify-between items-center text-xs font-bold text-neutral-900 pb-2 border-b border-neutral-200">
                   <span>Tổng tiền thanh toán:</span>
                   <span className="text-base font-extrabold text-neutral-950">
                     {formatVND(totalCartPrice)}
                   </span>
                 </div>
+
+                {/* Thông tin nhận hàng & Ghi chú */}
+                <div className="space-y-2 pt-1 text-left">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-neutral-500" />
+                      Số điện thoại nhận hàng <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={checkoutPhone}
+                      onChange={(e) => setCheckoutPhone(e.target.value)}
+                      placeholder={customerUser?.phone || "VD: 0912 345 678"}
+                      className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-neutral-500" />
+                      Địa chỉ nhận hàng <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={checkoutAddress}
+                      onChange={(e) => setCheckoutAddress(e.target.value)}
+                      placeholder="VD: 123 Đường Nguyễn Trãi, Q.1, TP.HCM"
+                      className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                      <FileText className="w-3 h-3 text-neutral-500" />
+                      Ghi chú đơn hàng (tuỳ chọn)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={checkoutNote}
+                      onChange={(e) => setCheckoutNote(e.target.value)}
+                      placeholder="VD: Giao giờ hành chính, gọi trước khi giao..."
+                      className="w-full px-3 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white resize-none"
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={() => {
-                    const recipient = customerUser ? customerUser.name : "quý khách";
+                    const finalPhone = checkoutPhone.trim() || (customerUser?.phone || "0912345678");
+                    const finalAddress = checkoutAddress.trim() || "Giao hàng tận nơi (Toàn quốc)";
+                    const finalNote = checkoutNote.trim() || "Đơn đặt trực tiếp từ Giỏ hàng Cửa hàng";
                     const newOrderId = `DH-${Math.floor(1000 + Math.random() * 9000)}`;
                     const now = new Date();
                     const formattedDate =
@@ -4028,10 +4373,11 @@ export default function App() {
 
                     const newOrder: Order = {
                       id: newOrderId,
+                      userId: customerUser?.id,
                       customerName: customerUser ? customerUser.name : "Khách Vãng Lai",
                       customerEmail: customerUser ? customerUser.email : "khachhang@thenhanshop.vn",
-                      customerPhone: "09" + Math.floor(10000000 + Math.random() * 90000000),
-                      customerAddress: "Địa chỉ giao hàng (Toàn quốc)",
+                      customerPhone: finalPhone,
+                      customerAddress: finalAddress,
                       items: cart.map((item) => ({
                         id: item.id,
                         name: item.name,
@@ -4043,7 +4389,7 @@ export default function App() {
                       totalAmount: totalCartPrice,
                       status: "pending",
                       createdAt: formattedDate,
-                      note: "Đơn đặt trực tiếp từ Giỏ hàng Cửa hàng",
+                      note: finalNote,
                     };
 
                     setOrders((prev) => [newOrder, ...prev]);
@@ -4058,13 +4404,30 @@ export default function App() {
                       );
                     }
 
+                    // Đồng bộ lưu đơn hàng và ghi chú vào SQL Server
+                    fetch("/api/orders", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(newOrder),
+                    })
+                      .then((res) => res.json())
+                      .then((data) => {
+                        if (!data.success) {
+                          console.error("Lỗi lưu đơn hàng vào DB:", data.message);
+                        }
+                      })
+                      .catch((err) => console.error("Error creating order in DB:", err));
+
                     alert(
-                      `🎉 Đặt hàng thành công! Mã đơn: ${newOrderId}. Đơn hàng đã được lưu và gửi tới hệ thống quản lý đơn hàng TheNhanShop.`
+                      `🎉 Đặt hàng thành công! Mã đơn: ${newOrderId}.\n📍 Giao đến: ${finalAddress}\n📞 SĐT: ${finalPhone}\n📝 Ghi chú: ${finalNote}\n\nĐơn hàng đã được lưu và gửi tới hệ thống quản lý TheNhanShop.`
                     );
                     setCart([]);
+                    setCheckoutPhone("");
+                    setCheckoutAddress("");
+                    setCheckoutNote("");
                     setIsCartOpen(false);
                   }}
-                  className="w-full py-3 bg-neutral-950 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-98"
+                  className="w-full py-3 bg-neutral-950 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
                 >
                   Xác nhận đặt hàng
                 </button>

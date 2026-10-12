@@ -21,7 +21,12 @@ const dbConfig = {
   server: process.env.DB_SERVER || 'den1.mssql8.gear.host',
   database: process.env.DB_DATABASE || 'backenddevops',
   port: parseInt(process.env.DB_PORT || '1433', 10),
+  connectionTimeout: 30000,
+  requestTimeout: 30000,
   options: {
+    port: parseInt(process.env.DB_PORT || '1433', 10),
+    connectTimeout: 30000,
+    requestTimeout: 30000,
     encrypt: false,
     trustServerCertificate: true,
     enableArithAbort: true,
@@ -30,6 +35,7 @@ const dbConfig = {
     max: 10,
     min: 0,
     idleTimeoutMillis: 30000,
+    acquireTimeoutMillis: 60000,
   },
 };
 
