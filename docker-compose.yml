@@ -12,7 +12,7 @@ services:
       - DB_SERVER=den1.mssql8.gear.host
       - DB_DATABASE=backenddevops
       - DB_USER=backenddevops
-      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_PASSWORD=${DB_PASSWORD:-Ht8MATB_?ZVG}
       - DB_PORT=1433
     ports:
       - "5000:5000"

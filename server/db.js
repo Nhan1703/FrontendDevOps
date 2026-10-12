@@ -3,16 +3,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Cấu hình kết nối SQL Server chuẩn xác theo thông số trên host GearHost
 const dbConfig = {
   user: process.env.DB_USER || 'backenddevops',
-  password: process.env.DB_PASSWORD || 'your_password_here',
+  password: process.env.DB_PASSWORD || 'Ht8MATB_?ZVG',
   server: process.env.DB_SERVER || 'den1.mssql8.gear.host',
   database: process.env.DB_DATABASE || 'backenddevops',
   port: parseInt(process.env.DB_PORT || '1433', 10),
   options: {
-    encrypt: false, // Tương ứng 'Optional' trên Azure Data Studio / SSMS
-    trustServerCertificate: true, // Tương ứng tick 'Trust Server Certificate'
+    encrypt: false,
+    trustServerCertificate: true,
     enableArithAbort: true,
   },
   pool: {
@@ -22,15 +21,18 @@ const dbConfig = {
   },
 };
 
-// Khởi tạo Connection Pool
-export const poolPromise = new sql.ConnectionPool(dbConfig)
-  .connect()
-  .then((pool) => {
+let pool = null;
+
+export async function getPool() {
+  if (pool) return pool;
+  try {
+    pool = await new sql.ConnectionPool(dbConfig).connect();
     console.log('✅ Đã kết nối thành công đến Microsoft SQL Server (den1.mssql8.gear.host)!');
     return pool;
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error('❌ Lỗi kết nối đến SQL Server:', err.message);
-  });
+    throw new Error(`Lỗi kết nối SQL Server: ${err.message}`);
+  }
+}
 
 export { sql };

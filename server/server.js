@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { poolPromise, sql } from './db.js';
+import { getPool, sql } from './db.js';
 
 dotenv.config();
 
@@ -14,7 +14,7 @@ app.use(express.json());
 // 1. Kiểm tra trạng thái Server & Database
 app.get('/api/health', async (req, res) => {
   try {
-    const pool = await poolPromise;
+    const pool = await getPool();
     const result = await pool.request().query('SELECT 1 AS status');
     res.json({
       status: 'OK',
@@ -29,7 +29,7 @@ app.get('/api/health', async (req, res) => {
 // 2. Lấy danh sách sản phẩm từ database
 app.get('/api/products', async (req, res) => {
   try {
-    const pool = await poolPromise;
+    const pool = await getPool();
     const result = await pool.request().query(`
       SELECT 
         id, name, category, price, original_price AS originalPrice,
@@ -54,7 +54,7 @@ app.get('/api/products', async (req, res) => {
 // 3. Lấy danh sách người dùng từ database
 app.get('/api/users', async (req, res) => {
   try {
-    const pool = await poolPromise;
+    const pool = await getPool();
     const result = await pool.request().query(`
       SELECT 
         id, name, email, password, phone, role, status,
@@ -71,7 +71,7 @@ app.get('/api/users', async (req, res) => {
 // 4. Lấy danh sách đơn hàng
 app.get('/api/orders', async (req, res) => {
   try {
-    const pool = await poolPromise;
+    const pool = await getPool();
     const ordersResult = await pool.request().query(`
       SELECT 
         id, customer_name AS customerName, customer_email AS customerEmail,
@@ -93,7 +93,7 @@ app.post('/api/orders', async (req, res) => {
   const orderId = `DH-${Date.now().toString().slice(-4)}`;
 
   try {
-    const pool = await poolPromise;
+    const pool = await getPool();
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
