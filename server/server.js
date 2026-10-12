@@ -41,8 +41,8 @@ app.get('/api/products', async (req, res) => {
 
     const products = result.recordset.map((item) => ({
       ...item,
-      specs: item.specs ? JSON.parse(item.specs) : [],
-      colors: item.colors ? JSON.parse(item.colors) : [],
+      specs: item.specs ? (typeof item.specs === 'string' ? JSON.parse(item.specs) : item.specs) : [],
+      colors: item.colors ? (typeof item.colors === 'string' ? JSON.parse(item.colors) : item.colors) : [],
     }));
 
     res.json({ success: true, data: products });
@@ -68,7 +68,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// 4. Lấy danh sách đơn hàng
+// 4. Lấy danh sách đơn hàng kèm chi tiết mặt hàng (items)
 app.get('/api/orders', async (req, res) => {
   try {
     const pool = await getPool();
@@ -81,7 +81,22 @@ app.get('/api/orders', async (req, res) => {
       ORDER BY created_at DESC
     `);
 
-    res.json({ success: true, data: ordersResult.recordset });
+    const itemsResult = await pool.request().query(`
+      SELECT 
+        order_id AS orderId, product_id AS id, product_name AS name,
+        price, quantity, selected_color AS selectedColor, image
+      FROM dbo.OrderItems
+    `);
+
+    const orders = ordersResult.recordset.map((order) => {
+      const items = itemsResult.recordset.filter((item) => item.orderId === order.id);
+      return {
+        ...order,
+        items: items || [],
+      };
+    });
+
+    res.json({ success: true, data: orders });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

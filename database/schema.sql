@@ -98,7 +98,7 @@ CREATE TABLE dbo.OrderItems (
 GO
 
 -- =======================================================================
--- 6. CHÈN DỮ LIỆU ĐỒNG BỘ 100% VỚI APP.TSX (7 TÀI KHOẢN, SẢN PHẨM, ĐƠN HÀNG)
+-- 6. CHÈN DỮ LIỆU ĐỒNG BỘ 100% VỚI APP.TSX (USERS, PRODUCTS, ORDERS)
 -- =======================================================================
 
 -- 6.1. Danh mục
@@ -108,7 +108,7 @@ INSERT INTO dbo.Categories (name, slug) VALUES
 (N'Củ cáp sạc', 'cu-cap-sac'),
 (N'Giá đỡ & Phụ kiện bàn', 'gia-do-phu-kien');
 
--- 6.2. Đúng 7 Tài khoản trùng khớp 100% với màn hình Admin trên web
+-- 6.2. Tài khoản chuẩn chỉ: Admin đầu tàu không có đơn, Khách hàng mới có đơn
 INSERT INTO dbo.Users (id, name, email, password, phone, role, status, created_at, orders_count) VALUES 
 ('USR-001', N'Quản trị viên (Admin)', 'admin', 'admin123', '0900 000 001', 'admin', 'active', '01/01/2026', 0),
 ('USR-002', N'Nguyễn Văn An', 'nguyenvanan@gmail.com', 'kh123', '0912 345 678', 'customer', 'active', '15/05/2026', 3),
@@ -118,7 +118,7 @@ INSERT INTO dbo.Users (id, name, email, password, phone, role, status, created_a
 ('USR-006', N'Vũ Hải Nam', 'hainam.vu@yahoo.com', 'kh123', '0977 889 900', 'customer', 'active', '02/09/2026', 0),
 ('USR-007', N'Thế Nhân', 'thenhan', 'admin123', '0917 714 595', 'admin', 'active', '08/09/2026', 0);
 
--- 6.3. Sản phẩm
+-- 6.3. Sản phẩm phong phú (10 sản phẩm công nghệ hot)
 INSERT INTO dbo.Products (name, category_id, category, price, original_price, rating, reviews_count, image, tag, description, specs, colors) VALUES
 (
     N'Tai nghe Bluetooth True Wireless Mini V5.3', 1, N'Tai nghe & Loa', 189000, 280000, 4.8, 342,
@@ -159,20 +159,65 @@ INSERT INTO dbo.Products (name, category_id, category, price, original_price, ra
     N'Cáp bọc sợi dù Kevlar siêu bền chống đứt gãy, chiều dài 1.2m, hỗ trợ truyền tải dữ liệu và sạc nhanh công suất lên tới 60W.',
     N'["Bọc dù chống rối", "Đầu nhôm gia cố", "Công suất tối đa 60W", "Bảo hành 12 tháng"]',
     N'["Xám Titan", "Đen Đậm", "Đỏ Nổi Bật"]'
+),
+(
+    N'Giá đỡ Laptop nhôm nguyên khối xoay 360 độ', 4, N'Giá đỡ & Phụ kiện bàn', 225000, 320000, 4.9, 215,
+    'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80',
+    N'Hot Deal',
+    N'Giá đỡ nhôm cao cấp chịu tải 10kg, trục xoay 360 độ êm ái, tản nhiệt tối ưu cho MacBook và Laptop 11-17 inch.',
+    N'["Hợp kim nhôm nguyên khối", "Khớp xoay 360 độ", "Đệm silicon chống trượt", "Gấp gọn mang đi"]',
+    N'["Bạc Ánh Kim", "Xám Không Gian"]'
+),
+(
+    N'Đèn LED thanh treo màn hình chống mỏi mắt Smart Bar', 4, N'Giá đỡ & Phụ kiện bàn', 310000, 450000, 4.8, 168,
+    'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80',
+    N'Khuyên dùng',
+    N'Đèn kẹp màn hình chiếu sáng bàn làm việc không gây chói mắt, tùy chỉnh 3 nhiệt độ màu (3000K-6500K) và độ sáng cảm ứng.',
+    N'["Chiếu sáng bất đối xứng", "Cảm ứng chạm", "Nguồn USB 5V", "3 chế độ ánh sáng"]',
+    N'["Đen Nhám"]'
+),
+(
+    N'Loa Bluetooth Mini chống nước IPX7 Bass Boost', 1, N'Tai nghe & Loa', 259000, 380000, 4.7, 310,
+    'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80',
+    N'Bán chạy',
+    N'Loa Bluetooth cầm tay công suất 10W, màng loa thụ động cho âm bass mạnh mẽ, chống nước ngâm IPX7 đi mưa thoải mái.',
+    N'["Công suất 10W", "Chống nước IPX7", "Pin 12 tiếng liên tục", "Hỗ trợ thẻ nhớ & AUX"]',
+    N'["Xanh Rêu", "Đen", "Đỏ Rực Rỡ"]'
+),
+(
+    N'Hub Type-C 7 trong 1 đa năng cho Laptop / iPad', 3, N'Củ cáp sạc', 345000, 490000, 4.9, 440,
+    'https://images.unsplash.com/photo-1544652478-6653e09f18a2?auto=format&fit=crop&w=800&q=80',
+    N'Yêu thích',
+    N'Bộ chia cổng kết nối gồm HDMI 4K@30Hz, 3 cổng USB 3.0, khe thẻ nhớ SD/TF và cổng sạc nhanh Type-C PD 100W.',
+    N'["HDMI 4K sắc nét", "Sạc nhanh PD 100W", "USB 3.0 tốc độ 5Gbps", "Vỏ nhôm tản nhiệt"]',
+    N'["Xám Titan"]'
+),
+(
+    N'Thảm da lót bàn làm việc Deskpad 2 mặt chống nước 80x40cm', 4, N'Giá đỡ & Phụ kiện bàn', 89000, 150000, 4.8, 620,
+    'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
+    N'Giá tốt',
+    N'Lót chuột cỡ lớn chất liệu da PU cao cấp mềm mịn, chống nước chống bám bẩn dễ lau chùi, sử dụng được cả 2 mặt 2 màu khác nhau.',
+    N'["Kích thước 80x40cm", "Da PU cao cấp 2 mặt", "Chống thấm nước tuyệt đối", "Tặng kèm dây cuộn da"]',
+    N'["Đen - Đỏ", "Xanh Navy - Vàng Bò", "Hồng - Xám"]'
 );
 
--- 6.4. Đơn hàng
+-- 6.4. Đơn hàng (Khách hàng đặt đơn, không phải Admin đặt)
 INSERT INTO dbo.Orders (id, user_id, customer_name, customer_email, customer_phone, customer_address, total_amount, status, note, created_at) VALUES
 ('DH-1001', 'USR-002', N'Nguyễn Văn An', 'nguyenvanan@gmail.com', '0912 345 678', N'123 Cầu Giấy, Hà Nội', 248000, 'pending', N'Giao giờ hành chính, gọi trước khi đến', '07/09/2026 14:30'),
-('DH-1002', 'USR-003', N'Trần Thị Bích', 'bich.tran@gmail.com', '0988 765 432', N'45 Lê Lợi, Quận 1, TP. Hồ Chí Minh', 489000, 'shipping', N'Giao buổi chiều sau 17h', '06/09/2026 09:15');
+('DH-1002', 'USR-003', N'Trần Thị Bích', 'bich.tran@gmail.com', '0988 765 432', N'45 Lê Lợi, Quận 1, TP. Hồ Chí Minh', 489000, 'shipping', N'Giao buổi chiều sau 17h', '06/09/2026 09:15'),
+('DH-1003', 'USR-004', N'Lê Hoàng Long', 'long.le@gmail.com', '0903 112 233', N'78 Nguyễn Huệ, Đà Nẵng', 310000, 'delivered', N'Để ở quầy lễ tân giúp mình', '05/09/2026 10:00');
 
--- 6.5. Chi tiết đơn hàng
+-- 6.5. Chi tiết các mặt hàng trong từng đơn hàng
 INSERT INTO dbo.OrderItems (order_id, product_id, product_name, price, quantity, selected_color, image) VALUES
 ('DH-1001', 1, N'Tai nghe Bluetooth True Wireless Mini V5.3', 189000, 1, N'Trắng Tinh Khôi', 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80'),
 ('DH-1001', 5, N'Cáp sạc nhanh bọc dù Type-C to Lightning / Type-C 60W', 59000, 1, N'Xám Titan', 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'),
-('DH-1002', 3, N'Bàn phím cơ không dây Tenkeyless 87 phím Led Pastel', 489000, 1, N'Trắng Xám', 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80');
+('DH-1002', 3, N'Bàn phím cơ không dây Tenkeyless 87 phím Led Pastel', 489000, 1, N'Trắng Xám', 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80'),
+('DH-1003', 7, N'Đèn LED thanh treo màn hình chống mỏi mắt Smart Bar', 310000, 1, N'Đen Nhám', 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80');
 GO
 
--- 7. Kiểm tra dữ liệu
-SELECT id, name, email, role, status, orders_count FROM dbo.Users ORDER BY id ASC;
+-- 7. Kiểm tra dữ liệu hoàn tất
+SELECT COUNT(*) AS UsersCount FROM dbo.Users;
+SELECT COUNT(*) AS ProductsCount FROM dbo.Products;
+SELECT COUNT(*) AS OrdersCount FROM dbo.Orders;
+SELECT COUNT(*) AS OrderItemsCount FROM dbo.OrderItems;
 GO

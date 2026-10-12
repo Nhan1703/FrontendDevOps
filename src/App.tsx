@@ -567,10 +567,10 @@ export default function App() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // Helper kiểm tra tài khoản Quản trị viên gốc đầu tiên (USR-001 / admin)
+  // Helper kiểm tra tài khoản Quản trị viên gốc đầu tiên (admin)
   const isRootAdmin = (u?: AppUser | null) => {
     if (!u) return false;
-    return u.id === "USR-001" || u.email.toLowerCase() === "admin";
+    return u.email.toLowerCase() === "admin" || (u.id === "USR-001" && (u.name || "").toLowerCase().includes("admin"));
   };
 
   // App Users State & LocalStorage Persistence
@@ -601,11 +601,11 @@ export default function App() {
               ];
 
           return userList.map((u) => {
-            const isRoot = u.id === "USR-001" || u.email.toLowerCase() === "admin";
+            const isRoot = u.email.toLowerCase() === "admin" || (u.id === "USR-001" && (u.name || "").toLowerCase().includes("admin"));
             const isTheNhan = u.email.toLowerCase() === "thenhan";
             return {
               ...u,
-              role: isRoot || isTheNhan ? "admin" : u.role,
+              role: isRoot || isTheNhan ? "admin" : (u.role || "customer"),
               status: isRoot ? "active" : u.status,
               password: u.password || (u.role === "admin" || u.email === "admin" || isTheNhan ? "admin123" : "kh123"),
             };
@@ -1958,7 +1958,8 @@ export default function App() {
                           </tr>
                         ) : (
                           adminFilteredOrders.map((order) => {
-                            const totalItemsCount = order.items.reduce((s, i) => s + i.quantity, 0);
+                            const items = Array.isArray(order.items) ? order.items : [];
+                            const totalItemsCount = items.reduce((s, i) => s + (i.quantity || 1), 0);
                             return (
                               <tr key={order.id} className="hover:bg-neutral-50/60 transition-colors">
                                 <td className="py-3 px-4 whitespace-nowrap">
@@ -1981,7 +1982,7 @@ export default function App() {
                                 <td className="py-3 px-4">
                                   <div className="flex items-center gap-2">
                                     <div className="flex -space-x-2 overflow-hidden shrink-0">
-                                      {order.items.slice(0, 3).map((item, idx) => (
+                                      {items.slice(0, 3).map((item, idx) => (
                                         <img
                                           key={idx}
                                           src={item.image}
@@ -1992,11 +1993,11 @@ export default function App() {
                                     </div>
                                     <div className="text-xs">
                                       <span className="font-semibold text-neutral-800">
-                                        {order.items[0]?.name}
+                                        {items[0]?.name || "Đơn hàng phụ kiện"}
                                       </span>
-                                      {order.items.length > 1 && (
+                                      {items.length > 1 && (
                                         <span className="text-[11px] text-neutral-400 ml-1">
-                                          (+{order.items.length - 1} món khác)
+                                          (+{items.length - 1} món khác)
                                         </span>
                                       )}
                                       <div className="text-[10px] text-neutral-400">
@@ -2474,7 +2475,7 @@ export default function App() {
                   {/* Order Items Table */}
                   <div className="mb-4">
                     <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-wider mb-2">
-                      Danh Sách Mặt Hàng ({selectedOrder.items.length})
+                      Danh Sách Mặt Hàng ({(selectedOrder.items || []).length})
                     </h4>
                     <div className="border border-neutral-200 rounded-xl overflow-hidden">
                       <table className="w-full text-left text-xs">
@@ -2488,7 +2489,7 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100">
-                          {selectedOrder.items.map((item, idx) => (
+                          {(selectedOrder.items || []).map((item, idx) => (
                             <tr key={idx} className="hover:bg-neutral-50/50">
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-2.5">
