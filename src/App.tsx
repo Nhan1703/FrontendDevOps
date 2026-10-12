@@ -622,6 +622,36 @@ export default function App() {
     localStorage.setItem("thenhanshop_users", JSON.stringify(appUsers));
   }, [appUsers]);
 
+  // Đồng bộ dữ liệu từ SQL Server qua Backend API khi mở ứng dụng
+  useEffect(() => {
+    fetch("/api/products")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setProducts(data.data);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setAppUsers(data.data);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/orders")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setOrders(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // User Management States
   const [userSearch, setUserSearch] = useState("");
   const [userRoleFilter, setUserRoleFilter] = useState<string>("all");
