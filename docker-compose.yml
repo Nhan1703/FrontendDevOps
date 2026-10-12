@@ -1,12 +1,13 @@
 version: '3.8'
 
 services:
-  next-app:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: next-app
+    container_name: thenhanshop-frontend
     ports:
+      - "80:80"
       - "3000:3000"
     environment:
       - NODE_ENV=production
