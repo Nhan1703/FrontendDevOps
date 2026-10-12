@@ -73,120 +73,6 @@ export interface UserProfile {
   role?: "admin" | "user";
 }
 
-const DEFAULT_PRODUCTS: Product[] = [
-  {
-    id: 1,
-    name: "Tai nghe Bluetooth True Wireless Mini V5.3",
-    category: "Tai nghe & Loa",
-    price: 189000,
-    originalPrice: 280000,
-    rating: 4.8,
-    reviewsCount: 342,
-    image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
-    tag: "Bán chạy",
-    description: "Tai nghe Bluetooth mini thiết kế nhỏ gọn, chống ồn đàm thoại ENC, thời lượng pin 24h kèm dock sạc, âm bass ấm, kết nối ổn định độ trễ thấp phù hợp nghe nhạc và học tập.",
-    specs: ["Bluetooth 5.3", "Pin 24 tiếng", "Cảm ứng chạm đa điểm", "Chống nước IPX4"],
-    colors: ["Trắng Tinh Khôi", "Đen Nhám", "Hồng Pastel"],
-  },
-  {
-    id: 2,
-    name: "Chuột không dây Silent Click công thái học",
-    category: "Bàn phím & Chuột",
-    price: 145000,
-    originalPrice: 210000,
-    rating: 4.9,
-    reviewsCount: 520,
-    image: "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=800&q=80",
-    tag: "Yêu thích",
-    description: "Chuột không dây thiết kế công thái học cầm vừa tay, switch bấm êm ái hoàn toàn không gây tiếng ồn (Silent Click), kết nối kép 2.4Ghz USB và Bluetooth.",
-    specs: ["Click chống ồn 99%", "DPI 800-1200-1600", "Pin sạc Type-C", "Trọng lượng 75g"],
-    colors: ["Xám Bạc", "Trắng Sữa", "Đen Tuyền"],
-  },
-  {
-    id: 3,
-    name: "Bàn phím cơ không dây Tenkeyless 87 phím Led Pastel",
-    category: "Bàn phím & Chuột",
-    price: 489000,
-    originalPrice: 650000,
-    rating: 4.9,
-    reviewsCount: 189,
-    image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&q=80",
-    tag: "Hot Deal",
-    description: "Bàn phím cơ layout 87 phím nhỏ gọn, switch gõ cực êm mượt đã được lube sẵn, đèn Led màu pastel tinh tế, hỗ trợ kết nối Bluetooth / 2.4Ghz / Dây Type-C.",
-    specs: ["Red Switch êm ái", "Keycap PBT chống bóng", "Hot-swap 3 pin", "Pin 3000mAh"],
-    colors: ["Trắng Xám", "Xanh Matcha", "Đen Huyền Bí"],
-  },
-  {
-    id: 4,
-    name: "Củ sạc nhanh GaN 30W Type-C nhỏ gọn",
-    category: "Củ cáp sạc",
-    price: 165000,
-    originalPrice: 250000,
-    rating: 4.8,
-    reviewsCount: 410,
-    image: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80",
-    tag: "Khuyên dùng",
-    description: "Củ sạc công nghệ GaN thế hệ mới kích thước siêu nhỏ, hỗ trợ sạc nhanh Power Delivery 30W cho iPhone, iPad, điện thoại Android và sạc phụ trợ MacBook Air.",
-    specs: ["Công suất chuẩn 30W", "Chip GaN mát mẻ", "Bảo vệ quá dòng / quá nhiệt", "Chân cắm gập 90 độ"],
-    colors: ["Trắng", "Đen"],
-  },
-  {
-    id: 5,
-    name: "Cáp sạc nhanh bọc dù Type-C to Lightning / Type-C 60W",
-    category: "Củ cáp sạc",
-    price: 59000,
-    originalPrice: 99000,
-    rating: 4.7,
-    reviewsCount: 890,
-    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
-    tag: "Giá tốt",
-    description: "Dây cáp sạc nhanh bọc sợi dù siêu bền chống đứt gãy, lõi đồng nguyên chất truyền tải điện năng 60W và dữ liệu tốc độ cao 480Mbps.",
-    specs: ["Dài 1.2 mét", "Chịu lực uốn 20.000 lần", "Truyền dữ liệu 480Mbps", "Hỗ trợ PD 60W"],
-    colors: ["Xám Không Gian", "Đen", "Xanh Navy"],
-  },
-  {
-    id: 6,
-    name: "Giá đỡ Laptop / iPad nhôm nguyên khối xoay 360 độ",
-    category: "Phụ kiện setup",
-    price: 219000,
-    originalPrice: 320000,
-    rating: 4.9,
-    reviewsCount: 275,
-    image: "https://images.unsplash.com/photo-1586775490184-b79f0621891f?auto=format&fit=crop&w=800&q=80",
-    tag: "Best Seller",
-    description: "Stand đỡ máy tính xách tay và máy tính bảng làm bằng hợp kim nhôm cao cấp, khớp xoay 360 độ tiện lợi, nâng cao màn hình giúp chống mỏi cổ vai gáy.",
-    specs: ["Hợp kim nhôm dày 3mm", "Xoay 360 độ có tiếng khấc", "Đệm silicon chống trầy", "Tải trọng tới 10kg"],
-    colors: ["Bạc Silver", "Xám Space Gray"],
-  },
-  {
-    id: 7,
-    name: "Thảm lót chuột bàn làm việc da PU chống nước (80x40cm)",
-    category: "Phụ kiện setup",
-    price: 79000,
-    originalPrice: 120000,
-    rating: 4.8,
-    reviewsCount: 630,
-    image: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80",
-    description: "Deskpad lót bàn da PU cao cấp chống bám bẩn và dễ dàng lau sạch bằng khăn ẩm, viền may chắc chắn, mặt đáy phủ nhung chống trượt hiệu quả.",
-    specs: ["Kích thước 80x40 cm", "Da PU 2 mặt cao cấp", "Chống nước tuyệt đối", "Không phai màu"],
-    colors: ["Xám Đậm", "Nâu Da Bò", "Xanh Rêu", "Hồng Khói"],
-  },
-  {
-    id: 8,
-    name: "Loa Bluetooth để bàn phong cách Retro Vintage",
-    category: "Tai nghe & Loa",
-    price: 349000,
-    originalPrice: 490000,
-    rating: 4.8,
-    reviewsCount: 160,
-    image: "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=800&q=80",
-    tag: "Decor đẹp",
-    description: "Loa Bluetooth thiết kế cổ điển sang trọng, vừa nghe nhạc âm thanh trung thực vừa làm đồ trang trí bàn làm việc hoặc phòng ngủ cực chill.",
-    specs: ["Công suất 10W", "Pin nghe liên tục 8h", "Hỗ trợ Bluetooth / Thẻ nhớ / AUX", "Núm xoay cơ học"],
-    colors: ["Gỗ Sáng", "Gỗ Óc Chó", "Trắng Kem"],
-  },
-];
-
 const DEFAULT_CATEGORIES = [
   "Tai nghe & Loa",
   "Bàn phím & Chuột",
@@ -292,179 +178,7 @@ export interface AppUser {
   ordersCount: number;
 }
 
-const DEFAULT_ORDERS: Order[] = [
-  {
-    id: "DH-1001",
-    customerName: "Nguyễn Văn An",
-    customerEmail: "nguyenvanan@gmail.com",
-    customerPhone: "0912 345 678",
-    customerAddress: "123 Cầu Giấy, Hà Nội",
-    items: [
-      {
-        id: 1,
-        name: "Tai nghe Bluetooth True Wireless Mini V5.3",
-        price: 189000,
-        quantity: 1,
-        selectedColor: "Trắng Tinh Khôi",
-        image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80",
-      },
-      {
-        id: 3,
-        name: "Cáp sạc nhanh Type-C to Type-C 65W Bọc dù",
-        price: 89000,
-        quantity: 2,
-        selectedColor: "Xám titan",
-        image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
-      },
-    ],
-    totalAmount: 367000,
-    status: "shipping",
-    createdAt: "07/09/2026 14:30",
-    note: "Giao giờ hành chính, gọi trước khi đến",
-  },
-  {
-    id: "DH-1002",
-    customerName: "Trần Thị Bích",
-    customerEmail: "bich.tran@gmail.com",
-    customerPhone: "0988 765 432",
-    customerAddress: "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
-    items: [
-      {
-        id: 2,
-        name: "Bàn phím cơ không dây Tenkeyless 87 phím Switch êm",
-        price: 499000,
-        quantity: 1,
-        selectedColor: "Trắng Retro",
-        image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80",
-      },
-    ],
-    totalAmount: 499000,
-    status: "pending",
-    createdAt: "08/09/2026 08:15",
-    note: "Đóng gói cẩn thận giúp shop",
-  },
-  {
-    id: "DH-1003",
-    customerName: "Lê Hoàng Long",
-    customerEmail: "long.le@gmail.com",
-    customerPhone: "0903 112 233",
-    customerAddress: "88 Trần Phú, Hải Châu, Đà Nẵng",
-    items: [
-      {
-        id: 4,
-        name: "Chuột không dây Silent Click công thái học",
-        price: 249000,
-        quantity: 1,
-        selectedColor: "Đen Nhám",
-        image: "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=400&q=80",
-      },
-    ],
-    totalAmount: 249000,
-    status: "delivered",
-    createdAt: "05/09/2026 10:20",
-  },
-  {
-    id: "DH-1004",
-    customerName: "Phạm Minh Đức",
-    customerEmail: "duc.pham@outlook.com",
-    customerPhone: "0934 556 778",
-    customerAddress: "12 Quang Trung, Hồng Bàng, Hải Phòng",
-    items: [
-      {
-        id: 5,
-        name: "Củ sạc nhanh GaN 65W 3 cổng Mini",
-        price: 349000,
-        quantity: 1,
-        selectedColor: "Đen",
-        image: "https://images.unsplash.com/photo-1609592424109-dd9892f1b177?auto=format&fit=crop&w=400&q=80",
-      },
-    ],
-    totalAmount: 349000,
-    status: "cancelled",
-    createdAt: "03/09/2026 16:45",
-    note: "Khách hủy do đổi mẫu khác",
-  },
-];
 
-const DEFAULT_APP_USERS: AppUser[] = [
-  {
-    id: "USR-001",
-    name: "Quản trị viên (Admin)",
-    email: "admin",
-    password: "admin123",
-    phone: "0900 000 001",
-    role: "admin",
-    status: "active",
-    createdAt: "01/01/2026",
-    ordersCount: 0,
-  },
-  {
-    id: "USR-002",
-    name: "Nguyễn Văn An",
-    email: "nguyenvanan@gmail.com",
-    password: "kh123",
-    phone: "0912 345 678",
-    role: "customer",
-    status: "active",
-    createdAt: "15/05/2026",
-    ordersCount: 3,
-  },
-  {
-    id: "USR-003",
-    name: "Trần Thị Bích",
-    email: "bich.tran@gmail.com",
-    password: "kh123",
-    phone: "0988 765 432",
-    role: "customer",
-    status: "active",
-    createdAt: "22/07/2026",
-    ordersCount: 1,
-  },
-  {
-    id: "USR-004",
-    name: "Lê Hoàng Long",
-    email: "long.le@gmail.com",
-    password: "kh123",
-    phone: "0903 112 233",
-    role: "customer",
-    status: "active",
-    createdAt: "10/08/2026",
-    ordersCount: 2,
-  },
-  {
-    id: "USR-005",
-    name: "Phạm Minh Đức",
-    email: "duc.pham@outlook.com",
-    password: "kh123",
-    phone: "0934 556 778",
-    role: "customer",
-    status: "active",
-    createdAt: "28/08/2026",
-    ordersCount: 1,
-  },
-  {
-    id: "USR-006",
-    name: "Vũ Hải Nam",
-    email: "hainam.vu@yahoo.com",
-    password: "kh123",
-    phone: "0977 889 900",
-    role: "customer",
-    status: "active",
-    createdAt: "02/09/2026",
-    ordersCount: 0,
-  },
-  {
-    id: "USR-007",
-    name: "Thế Nhân",
-    email: "thenhan",
-    password: "admin123",
-    phone: "0917 714 595",
-    role: "admin",
-    status: "active",
-    createdAt: "08/09/2026",
-    ordersCount: 0,
-  },
-];
 
 export default function App() {
   // Navigation view synced with URL pathname (e.g. /admin)
@@ -511,7 +225,7 @@ export default function App() {
         console.error("Error loading products from localStorage", e);
       }
     }
-    return DEFAULT_PRODUCTS;
+    return [];
   });
 
   // Save to localStorage on change
@@ -558,7 +272,7 @@ export default function App() {
         }
       }
     }
-    return DEFAULT_ORDERS;
+    return [];
   });
 
   useEffect(() => {
@@ -583,42 +297,13 @@ export default function App() {
       if (saved) {
         try {
           const parsed: AppUser[] = JSON.parse(saved);
-          const hasTheNhan = parsed.some(
-            (u) => u.email.toLowerCase() === "thenhan" || u.id === "USR-007"
-          );
-          const userList = hasTheNhan
-            ? parsed
-            : [
-                ...parsed,
-                {
-                  id: "USR-007",
-                  name: "Thế Nhân",
-                  email: "thenhan",
-                  password: "admin123",
-                  phone: "0917 714 595",
-                  role: "admin" as const,
-                  status: "active" as const,
-                  createdAt: "08/09/2026",
-                  ordersCount: 0,
-                },
-              ];
-
-          return userList.map((u) => {
-            const isRoot = u.email.toLowerCase() === "admin" || (u.id === "USR-001" && (u.name || "").toLowerCase().includes("admin"));
-            const isTheNhan = u.email.toLowerCase() === "thenhan";
-            return {
-              ...u,
-              role: isRoot || isTheNhan ? "admin" : (u.role || "customer"),
-              status: isRoot ? "active" : u.status,
-              password: u.password || (u.role === "admin" || u.email === "admin" || isTheNhan ? "admin123" : "kh123"),
-            };
-          });
+          return parsed;
         } catch (e) {
           console.error("Error loading users from localStorage", e);
         }
       }
     }
-    return DEFAULT_APP_USERS;
+    return [];
   });
 
   useEffect(() => {
@@ -630,29 +315,29 @@ export default function App() {
     fetch("/api/products")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        if (data.success && Array.isArray(data.data)) {
           setProducts(data.data);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("Error loading products from DB:", err));
 
     fetch("/api/users")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        if (data.success && Array.isArray(data.data)) {
           setAppUsers(data.data);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("Error loading users from DB:", err));
 
     fetch("/api/orders")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        if (data.success && Array.isArray(data.data)) {
           setOrders(data.data);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.error("Error loading orders from DB:", err));
   }, []);
 
   // User Management States
@@ -1105,11 +790,15 @@ export default function App() {
   };
 
   const handleResetDefaultData = () => {
-    if (confirm("Khôi phục danh sách sản phẩm về dữ liệu mặc định ban đầu?")) {
-      setProducts(DEFAULT_PRODUCTS);
-      localStorage.setItem("thenhanshop_products", JSON.stringify(DEFAULT_PRODUCTS));
-      showToast("Đã khôi phục dữ liệu sản phẩm gốc!");
-    }
+    fetch("/api/products")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setProducts(data.data);
+          showToast("Đã tải lại danh sách sản phẩm từ cơ sở dữ liệu!");
+        }
+      })
+      .catch(() => showToast("Lỗi khi tải dữ liệu sản phẩm từ CSDL!"));
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
@@ -1224,11 +913,15 @@ export default function App() {
   };
 
   const handleResetOrders = () => {
-    if (confirm("Khôi phục danh sách đơn hàng về dữ liệu mẫu ban đầu?")) {
-      setOrders(DEFAULT_ORDERS);
-      localStorage.setItem("thenhanshop_orders", JSON.stringify(DEFAULT_ORDERS));
-      showToast("Đã khôi phục danh sách đơn hàng gốc!");
-    }
+    fetch("/api/orders")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setOrders(data.data);
+          showToast("Đã tải lại danh sách đơn hàng từ cơ sở dữ liệu!");
+        }
+      })
+      .catch(() => showToast("Lỗi khi tải dữ liệu đơn hàng từ CSDL!"));
   };
 
   const adminFilteredOrders = useMemo(() => {
@@ -1444,11 +1137,15 @@ export default function App() {
   };
 
   const handleResetUsers = () => {
-    if (confirm("Khôi phục danh sách người dùng về dữ liệu mặc định ban đầu?")) {
-      setAppUsers(DEFAULT_APP_USERS);
-      localStorage.setItem("thenhanshop_users", JSON.stringify(DEFAULT_APP_USERS));
-      showToast("Đã khôi phục danh sách người dùng gốc!");
-    }
+    fetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setAppUsers(data.data);
+          showToast("Đã tải lại danh sách người dùng từ cơ sở dữ liệu!");
+        }
+      })
+      .catch(() => showToast("Lỗi khi tải dữ liệu người dùng từ CSDL!"));
   };
 
   const adminFilteredUsers = useMemo(() => {
