@@ -2335,7 +2335,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <form onSubmit={handleCreateUser} className="space-y-3.5 text-xs">
+                  <form onSubmit={handleCreateUser} autoComplete="off" className="space-y-3.5 text-xs">
                     <div>
                       <label className="block font-semibold text-neutral-700 mb-1">
                         Họ và tên *
@@ -2343,6 +2343,7 @@ export default function App() {
                       <input
                         type="text"
                         required
+                        autoComplete="off"
                         value={newUserName}
                         onChange={(e) => setNewUserName(e.target.value)}
                         placeholder="VD: Nguyễn Văn Nam"
@@ -2357,6 +2358,7 @@ export default function App() {
                       <input
                         type="text"
                         required
+                        autoComplete="off"
                         value={newUserEmail}
                         onChange={(e) => setNewUserEmail(e.target.value)}
                         placeholder="VD: nam.nguyen@gmail.com"
@@ -2377,6 +2379,7 @@ export default function App() {
                         <input
                           type={showNewUserPassword ? "text" : "password"}
                           required
+                          autoComplete="new-password"
                           value={newUserPassword}
                           onChange={(e) => setNewUserPassword(e.target.value)}
                           placeholder={newUserRole === "admin" ? "admin123" : "kh123"}
@@ -2490,7 +2493,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <form onSubmit={handleSaveEditUser} className="space-y-3.5 text-xs">
+                  <form onSubmit={handleSaveEditUser} autoComplete="off" className="space-y-3.5 text-xs">
                     <div>
                       <label className="block font-semibold text-neutral-700 mb-1">
                         Họ và tên *
@@ -2498,6 +2501,7 @@ export default function App() {
                       <input
                         type="text"
                         required
+                        autoComplete="off"
                         value={editUserName}
                         onChange={(e) => setEditUserName(e.target.value)}
                         placeholder="Họ và tên người dùng"
@@ -2512,6 +2516,7 @@ export default function App() {
                       <input
                         type="text"
                         required
+                        autoComplete="off"
                         disabled={editingUser.email === "admin"}
                         value={editUserEmail}
                         onChange={(e) => setEditUserEmail(e.target.value)}
@@ -2542,6 +2547,7 @@ export default function App() {
                         <input
                           type={showEditUserPassword ? "text" : "password"}
                           required
+                          autoComplete="new-password"
                           value={editUserPassword}
                           onChange={(e) => setEditUserPassword(e.target.value)}
                           placeholder={
