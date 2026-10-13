@@ -157,20 +157,39 @@ app.get('/api/users', async (req, res) => {
 app.post('/api/users', async (req, res) => {
   const { id, name, email, password, phone, role, status, createdAt } = req.body;
   try {
-    const existing = await User.findOne({ email: new RegExp(`^${email}$`, 'i') });
-    if (existing) {
+    const cleanEmail = (email || '').trim();
+    if (!cleanEmail) {
       return res.status(400).json({
         success: false,
-        message: 'Email này đã tồn tại trong hệ thống!',
+        message: 'Email không được để trống!',
       });
+    }
+
+    const existingEmail = await User.findOne({ email: new RegExp(`^${cleanEmail}$`, 'i') });
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email này đã tồn tại trong hệ thống, vui lòng chọn email khác!',
+      });
+    }
+
+    const cleanPhone = (phone || '').trim();
+    if (cleanPhone) {
+      const existingPhone = await User.findOne({ phone: cleanPhone });
+      if (existingPhone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Số điện thoại này đã được sử dụng bởi người dùng khác!',
+        });
+      }
     }
 
     const newUser = await User.create({
       id,
       name,
-      email: email.toLowerCase(),
+      email: cleanEmail.toLowerCase(),
       password: password || 'kh123',
-      phone: phone || null,
+      phone: cleanPhone || null,
       role: role || 'customer',
       status: status || 'active',
       createdAt: createdAt || new Date().toLocaleDateString('vi-VN'),
@@ -194,9 +213,43 @@ app.put('/api/users/:id', async (req, res) => {
   try {
     const updateData = {};
     if (name !== undefined) updateData.name = name;
-    if (email !== undefined) updateData.email = email.toLowerCase();
+
+    if (email !== undefined) {
+      const cleanEmail = email.trim();
+      const existingEmail = await User.findOne({
+        id: { $ne: id },
+        email: new RegExp(`^${cleanEmail}$`, 'i'),
+      });
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email này đã được sử dụng bởi người dùng khác!',
+        });
+      }
+      updateData.email = cleanEmail.toLowerCase();
+    }
+
     if (password !== undefined) updateData.password = password;
-    if (phone !== undefined) updateData.phone = phone;
+
+    if (phone !== undefined) {
+      const cleanPhone = (phone || '').trim();
+      if (cleanPhone) {
+        const existingPhone = await User.findOne({
+          id: { $ne: id },
+          phone: cleanPhone,
+        });
+        if (existingPhone) {
+          return res.status(400).json({
+            success: false,
+            message: 'Số điện thoại này đã được sử dụng bởi người dùng khác!',
+          });
+        }
+        updateData.phone = cleanPhone;
+      } else {
+        updateData.phone = null;
+      }
+    }
+
     if (role !== undefined) updateData.role = role;
     if (status !== undefined) updateData.status = status;
 

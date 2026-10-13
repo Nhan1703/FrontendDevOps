@@ -486,6 +486,7 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
 
   // Customer Auth handlers (Chỉ cho khách hàng, không can thiệp Admin)
   const handleAuthSubmit = (e: React.FormEvent) => {
@@ -603,24 +604,37 @@ export default function App() {
         showToast(`Chào mừng ${customer.name} đã đăng nhập thành công!`);
       }
     } else {
-      if (!authName.trim() || !authEmail.trim() || !authPassword) {
-        showToast("Vui lòng điền đầy đủ thông tin đăng ký!");
+      const cleanName = authName.trim();
+      const cleanEmail = authEmail.trim();
+      const cleanPass = authPassword.trim();
+      const cleanPhone = authPhone.trim();
+
+      if (!cleanName || !cleanEmail || !cleanPass) {
+        showToast("Vui lòng điền đầy đủ Họ tên, Email và Mật khẩu!");
         return;
       }
 
-      // Xóa bỏ session Admin khi tạo tài khoản khách hàng
-      setIsAdminLoggedIn(false);
-      localStorage.removeItem("thenhanshop_admin_logged_in");
+      // 1. Kiểm tra Email đã tồn tại chưa
+      const emailExists = appUsers.some(
+        (u) => u.email.toLowerCase() === cleanEmail.toLowerCase()
+      );
+      if (emailExists) {
+        showToast("Email này đã được đăng ký, vui lòng sử dụng email khác hoặc đăng nhập!");
+        return;
+      }
 
-      const customer: UserProfile = {
-        name: authName.trim(),
-        email: authEmail.trim(),
-        role: "user",
-      };
-      setCustomerUser(customer);
-      localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
+      // 2. Kiểm tra Số điện thoại đã tồn tại chưa (nếu có nhập)
+      if (cleanPhone) {
+        const phoneExists = appUsers.some(
+          (u) => u.phone && u.phone.trim() === cleanPhone
+        );
+        if (phoneExists) {
+          showToast("Số điện thoại này đã được sử dụng bởi tài khoản khác!");
+          return;
+        }
+      }
 
-      // Tự động thêm vào danh sách Quản lý người dùng trong Admin & Database
+      // Tự động sinh ID người dùng
       const maxIdNum = appUsers.reduce((max, u) => {
         const match = u.id.match(/^USR-(\d+)$/);
         return match ? Math.max(max, parseInt(match[1], 10)) : max;
@@ -628,35 +642,59 @@ export default function App() {
       const nextUserId = `USR-${String(maxIdNum + 1).padStart(3, "0")}`;
       const newCustomerUser: AppUser = {
         id: nextUserId,
-        name: customer.name,
-        email: customer.email,
-        password: authPassword.trim() || "kh123",
+        name: cleanName,
+        email: cleanEmail.toLowerCase(),
+        password: cleanPass || "kh123",
+        phone: cleanPhone || undefined,
         role: "customer",
         status: "active",
         createdAt: new Date().toLocaleDateString("vi-VN"),
         ordersCount: 0,
       };
 
-      setAppUsers((prev) => {
-        if (prev.some((u) => u.email.toLowerCase() === customer.email.toLowerCase())) {
-          return prev;
-        }
-        return [...prev, newCustomerUser];
-      });
-
-      // Lưu tài khoản mới vào SQL Server
+      // Gửi API lưu người dùng vào Database
       fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCustomerUser),
-      }).catch((err) => console.error("Error creating customer in DB:", err));
+      })
+        .then(async (res) => {
+          const resData = await res.json();
+          if (!res.ok || !resData.success) {
+            showToast(resData.message || "Đăng ký không thành công!");
+            return;
+          }
 
-      setIsAuthModalOpen(false);
-      showToast(`Đăng ký tài khoản thành công! Xin chào ${customer.name}`);
+          // Xóa bỏ session Admin khi tạo tài khoản khách hàng
+          setIsAdminLoggedIn(false);
+          localStorage.removeItem("thenhanshop_admin_logged_in");
+
+          const customer: UserProfile = {
+            name: cleanName,
+            email: cleanEmail.toLowerCase(),
+            role: "user",
+          };
+          setCustomerUser(customer);
+          localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
+
+          setAppUsers((prev) => [...prev, newCustomerUser]);
+          setIsAuthModalOpen(false);
+          setAuthEmail("");
+          setAuthPassword("");
+          setAuthName("");
+          setAuthPhone("");
+          showToast(`Đăng ký tài khoản thành công! Xin chào ${customer.name}`);
+        })
+        .catch((err) => {
+          console.error("Error creating customer in DB:", err);
+          showToast("Lỗi kết nối máy chủ khi đăng ký tài khoản!");
+        });
+      return;
     }
     setAuthEmail("");
     setAuthPassword("");
     setAuthName("");
+    setAuthPhone("");
   };
 
   const handleCustomerLogout = () => {
@@ -1091,6 +1129,17 @@ export default function App() {
       return;
     }
 
+    const cleanNewPhone = newUserPhone.trim();
+    if (cleanNewPhone) {
+      const phoneExists = appUsers.some(
+        (u) => u.phone && u.phone.trim() === cleanNewPhone
+      );
+      if (phoneExists) {
+        showToast("Số điện thoại này đã được sử dụng bởi người dùng khác!");
+        return;
+      }
+    }
+
     const maxIdNum = appUsers.reduce((max, u) => {
       const match = u.id.match(/^USR-(\d+)$/);
       return match ? Math.max(max, parseInt(match[1], 10)) : max;
@@ -1168,6 +1217,20 @@ export default function App() {
     if (duplicate) {
       showToast("Email/tài khoản này đã được sử dụng bởi người dùng khác!");
       return;
+    }
+
+    const cleanEditPhone = editUserPhone.trim();
+    if (cleanEditPhone) {
+      const phoneDuplicate = appUsers.some(
+        (u) =>
+          u.id !== editingUser.id &&
+          u.phone &&
+          u.phone.trim() === cleanEditPhone
+      );
+      if (phoneDuplicate) {
+        showToast("Số điện thoại này đã được sử dụng bởi người dùng khác!");
+        return;
+      }
     }
 
     const defaultPass = editingUser.role === "admin" || editingUser.email === "admin" ? "admin123" : "kh123";
@@ -3494,36 +3557,62 @@ export default function App() {
             {/* Form */}
             <form onSubmit={handleAuthSubmit} className="space-y-3.5">
               {authMode === "register" && (
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Họ và tên
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={authName}
-                      onChange={(e) => setAuthName(e.target.value)}
-                      placeholder="Nguyễn Văn A"
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
-                    />
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                      Họ và tên
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required
+                        value={authName}
+                        onChange={(e) => setAuthName(e.target.value)}
+                        placeholder="Nguyễn Văn A"
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                      Số điện thoại
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="tel"
+                        value={authPhone}
+                        onChange={(e) => setAuthPhone(e.target.value)}
+                        placeholder="0912 345 678"
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Tài khoản hoặc Email
+                  {authMode === "register" ? "Email đăng ký" : "Tài khoản hoặc Email"}
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  {authMode === "register" ? (
+                    <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  ) : (
+                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  )}
                   <input
-                    type="text"
+                    type={authMode === "register" ? "email" : "text"}
                     required
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
-                    placeholder="Nhập email hoặc tên tài khoản..."
+                    placeholder={
+                      authMode === "register"
+                        ? "example@gmail.com"
+                        : "Nhập email hoặc tên tài khoản..."
+                    }
                     className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
                   />
                 </div>
