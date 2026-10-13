@@ -1900,7 +1900,7 @@ export default function App() {
                     <div className="text-2xl font-extrabold text-neutral-950 mt-1">{appUsers.length}</div>
                   </div>
                   <div className="bg-white p-4 rounded-xl border border-indigo-200/80 shadow-sm bg-indigo-50/20">
-                    <div className="text-[11px] font-semibold text-indigo-600 uppercase">Quản Trị Viên</div>
+                    <div className="text-[11px] font-semibold text-indigo-600 uppercase">Admin</div>
                     <div className="text-2xl font-extrabold text-indigo-700 mt-1">
                       {appUsers.filter((u) => u.role === "admin").length}
                     </div>
@@ -1948,7 +1948,7 @@ export default function App() {
                         className="px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-900 text-neutral-800"
                       >
                         <option value="all">Tất cả vai trò</option>
-                        <option value="admin">Quản trị viên (Admin)</option>
+                        <option value="admin">Admin</option>
                         <option value="customer">Khách hàng</option>
                       </select>
 
@@ -2008,11 +2008,6 @@ export default function App() {
                                     <div>
                                       <div className="font-bold text-neutral-900 flex items-center gap-1.5">
                                         <span>{u.name}</span>
-                                        {isRoot && (
-                                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-indigo-100 text-indigo-700">
-                                            Admin Gốc
-                                          </span>
-                                        )}
                                       </div>
                                       <div className="text-[10px] text-neutral-400 font-mono">{u.id}</div>
                                     </div>
@@ -2037,9 +2032,9 @@ export default function App() {
                                   {isRoot ? (
                                     <span
                                       className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200 cursor-not-allowed opacity-90 select-none"
-                                      title="Tài khoản Quản trị viên gốc không thể đổi vai trò"
+                                      title="Tài khoản Admin không thể đổi vai trò"
                                     >
-                                      Quản Trị Viên (Gốc)
+                                      Admin
                                     </span>
                                   ) : (
                                     <button
@@ -2050,9 +2045,9 @@ export default function App() {
                                           ? "bg-purple-100 text-purple-700 hover:bg-purple-200 border border-purple-200"
                                           : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200 border border-neutral-200"
                                       }`}
-                                      title="Bấm để đổi vai trò Quản trị viên / Khách hàng"
+                                      title="Bấm để đổi vai trò Admin / Khách hàng"
                                     >
-                                      {u.role === "admin" ? "Quản Trị Viên" : "Khách Hàng"}
+                                      {u.role === "admin" ? "Admin" : "Khách Hàng"}
                                     </button>
                                   )}
                                 </td>
@@ -2071,9 +2066,9 @@ export default function App() {
                                   {isRoot ? (
                                     <span
                                       className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 cursor-not-allowed opacity-90 select-none"
-                                      title="Tài khoản Quản trị viên gốc luôn hoạt động, không thể khóa"
+                                      title="Tài khoản Admin luôn hoạt động, không thể khóa"
                                     >
-                                      Hoạt động (Cố định)
+                                      Hoạt động
                                     </span>
                                   ) : (
                                     <button
@@ -2453,8 +2448,8 @@ export default function App() {
                         onChange={(e) => setNewUserRole(e.target.value as "admin" | "customer")}
                         className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none font-medium"
                       >
-                        <option value="customer">Khách Hàng (Customer)</option>
-                        <option value="admin">Quản Trị Viên (Admin)</option>
+                        <option value="customer">Khách Hàng</option>
+                        <option value="admin">Admin</option>
                       </select>
                     </div>
 
@@ -2628,8 +2623,8 @@ export default function App() {
                           editingUser.email === "admin" ? "opacity-60 cursor-not-allowed" : ""
                         }`}
                       >
-                        <option value="customer">Khách Hàng (Customer)</option>
-                        <option value="admin">Quản Trị Viên (Admin)</option>
+                        <option value="customer">Khách Hàng</option>
+                        <option value="admin">Admin</option>
                       </select>
                     </div>
 
