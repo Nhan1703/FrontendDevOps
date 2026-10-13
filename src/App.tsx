@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   ShoppingCart,
   Search,
-  Star,
   Trash2,
   Plus,
   Minus,
@@ -1588,14 +1587,13 @@ export default function App() {
                           <th className="py-3 px-4">Danh Mục</th>
                           <th className="py-3 px-4">Giá Bán</th>
                           <th className="py-3 px-4">Giá Gốc</th>
-                          <th className="py-3 px-4">Đánh Giá</th>
                           <th className="py-3 px-4 text-right">Hành Động</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100">
                         {adminFilteredProducts.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="text-center py-10 text-neutral-400">
+                            <td colSpan={5} className="text-center py-10 text-neutral-400">
                               Không tìm thấy sản phẩm nào phù hợp.
                             </td>
                           </tr>
@@ -1634,21 +1632,6 @@ export default function App() {
                                 {product.originalPrice > product.price
                                   ? formatVND(product.originalPrice)
                                   : "—"}
-                              </td>
-                              <td className="py-3 px-4">
-                                {product.reviewsCount > 0 ? (
-                                  <div className="flex items-center gap-1 text-amber-500 font-semibold">
-                                    <Star className="w-3 h-3 fill-current" />
-                                    <span>{product.rating}</span>
-                                    <span className="text-[10px] text-neutral-400 font-normal">
-                                      ({product.reviewsCount})
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-neutral-400 text-xs italic">
-                                    Chưa có
-                                  </span>
-                                )}
                               </td>
                               <td className="py-3 px-4 text-right whitespace-nowrap">
                                 <div className="flex items-center justify-end gap-1.5">
@@ -3028,43 +3011,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Rating & Reviews */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="font-semibold text-neutral-700">
-                        Đánh giá sao (0 - 5)
-                      </label>
-                      <span className="text-[10px] text-neutral-400">0 = Chưa có</span>
-                    </div>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="5"
-                      value={formRating}
-                      onChange={(e) => setFormRating(e.target.value)}
-                      placeholder="0 (chưa đánh giá)"
-                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
-                    />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="font-semibold text-neutral-700">
-                        Số lượt đánh giá
-                      </label>
-                      <span className="text-[10px] text-neutral-400">0 = Chưa có</span>
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formReviewsCount}
-                      onChange={(e) => setFormReviewsCount(e.target.value)}
-                      placeholder="0"
-                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
-                    />
-                  </div>
-                </div>
 
                 {/* Submit Buttons */}
                 <div className="flex justify-end gap-2 pt-3 border-t border-neutral-100">
@@ -3397,17 +3343,9 @@ export default function App() {
                     {/* Content */}
                     <div className="p-3.5 flex-1 flex flex-col justify-between">
                       <div>
-                        {/* Category & Rating */}
-                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
-                          <span>{product.category}</span>
-                          {product.reviewsCount > 0 ? (
-                            <span className="flex items-center text-amber-500 font-medium">
-                              <Star className="w-3 h-3 fill-current mr-0.5" />
-                              {product.rating} ({product.reviewsCount})
-                            </span>
-                          ) : (
-                            <span className="text-neutral-400">Chưa có đánh giá</span>
-                          )}
+                        {/* Category */}
+                        <div className="text-[10px] text-neutral-400 mb-1 font-medium">
+                          {product.category}
                         </div>
 
                         {/* Title */}
@@ -3723,25 +3661,7 @@ export default function App() {
                   {selectedProduct.name}
                 </h3>
 
-                {/* Rating */}
-                {selectedProduct.reviewsCount > 0 ? (
-                  <div className="flex items-center gap-2 mb-3 text-xs">
-                    <div className="flex items-center text-amber-500">
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      <span className="ml-1 font-bold text-neutral-800">
-                        {selectedProduct.rating}
-                      </span>
-                    </div>
-                    <span className="text-neutral-300">|</span>
-                    <span className="text-neutral-500">
-                      {selectedProduct.reviewsCount} đánh giá tích cực
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 mb-3 text-xs text-neutral-400">
-                    <span>Sản phẩm mới (Chưa có đánh giá)</span>
-                  </div>
-                )}
+
 
                 {/* Price */}
                 <div className="flex items-baseline gap-2 mb-4 bg-neutral-50 p-3 rounded-xl border border-neutral-200/60">
