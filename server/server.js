@@ -35,6 +35,115 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// 2.1. Thêm sản phẩm mới vào MongoDB
+app.post('/api/products', async (req, res) => {
+  const {
+    id,
+    name,
+    category,
+    price,
+    originalPrice,
+    rating,
+    reviewsCount,
+    image,
+    tag,
+    description,
+    specs,
+    colors,
+  } = req.body;
+
+  try {
+    let prodId = id;
+    if (!prodId) {
+      const maxProd = await Product.findOne().sort({ id: -1 }).lean();
+      prodId = maxProd ? maxProd.id + 1 : 1;
+    }
+
+    const newProduct = await Product.create({
+      id: Number(prodId),
+      name,
+      category: category || 'Phụ kiện',
+      price: Number(price),
+      originalPrice: Number(originalPrice || price),
+      rating: Number(rating) || 5.0,
+      reviewsCount: Number(reviewsCount) || 0,
+      image:
+        image ||
+        'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
+      tag: tag || null,
+      description: description || name,
+      specs: Array.isArray(specs) ? specs : [],
+      colors: Array.isArray(colors) ? colors : [],
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Thêm sản phẩm vào MongoDB thành công!',
+      data: newProduct,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2.2. Cập nhật sản phẩm trong MongoDB
+app.put('/api/products/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const {
+    name,
+    category,
+    price,
+    originalPrice,
+    rating,
+    reviewsCount,
+    image,
+    tag,
+    description,
+    specs,
+    colors,
+  } = req.body;
+
+  try {
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (category !== undefined) updateData.category = category;
+    if (price !== undefined) updateData.price = Number(price);
+    if (originalPrice !== undefined) updateData.originalPrice = Number(originalPrice);
+    if (rating !== undefined) updateData.rating = Number(rating);
+    if (reviewsCount !== undefined) updateData.reviewsCount = Number(reviewsCount);
+    if (image !== undefined) updateData.image = image;
+    if (tag !== undefined) updateData.tag = tag;
+    if (description !== undefined) updateData.description = description;
+    if (specs !== undefined) updateData.specs = Array.isArray(specs) ? specs : [];
+    if (colors !== undefined) updateData.colors = Array.isArray(colors) ? colors : [];
+
+    const updated = await Product.findOneAndUpdate(
+      { id },
+      { $set: updateData },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Cập nhật sản phẩm thành công!',
+      data: updated,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2.3. Xóa sản phẩm khỏi MongoDB
+app.delete('/api/products/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    await Product.findOneAndDelete({ id });
+    res.json({ success: true, message: 'Đã xóa sản phẩm khỏi Database!' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 3. Lấy danh sách người dùng từ MongoDB
 app.get('/api/users', async (req, res) => {
   try {

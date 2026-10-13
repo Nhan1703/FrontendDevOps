@@ -789,6 +789,10 @@ export default function App() {
     const p = products.find((item) => item.id === id);
     if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${p?.name}" không?`)) {
       setProducts((prev) => prev.filter((item) => item.id !== id));
+      // Xóa sản phẩm khỏi MongoDB
+      fetch(`/api/products/${id}`, {
+        method: "DELETE",
+      }).catch((err) => console.error("Error deleting product from DB:", err));
       showToast(`Đã xóa sản phẩm thành công`);
     }
   };
@@ -830,26 +834,32 @@ export default function App() {
 
     if (editingProduct) {
       // UPDATE
+      const updatedProduct: Product = {
+        ...editingProduct,
+        name: formName.trim(),
+        category: formCategory.trim() || "Phụ kiện",
+        price: priceNum,
+        originalPrice: origPriceNum,
+        rating: ratingNum,
+        reviewsCount: reviewsNum,
+        image: formImage.trim() || "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
+        tag: formTag.trim() || undefined,
+        description: formDescription.trim() || formName.trim(),
+        specs: specsArr,
+        colors: colorsArr,
+      };
+
       setProducts((prev) =>
-        prev.map((item) =>
-          item.id === editingProduct.id
-            ? {
-                ...item,
-                name: formName.trim(),
-                category: formCategory.trim() || "Phụ kiện",
-                price: priceNum,
-                originalPrice: origPriceNum,
-                rating: ratingNum,
-                reviewsCount: reviewsNum,
-                image: formImage.trim() || "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
-                tag: formTag.trim() || undefined,
-                description: formDescription.trim() || formName.trim(),
-                specs: specsArr,
-                colors: colorsArr,
-              }
-            : item
-        )
+        prev.map((item) => (item.id === editingProduct.id ? updatedProduct : item))
       );
+
+      // Cập nhật sản phẩm vào MongoDB
+      fetch(`/api/products/${editingProduct.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedProduct),
+      }).catch((err) => console.error("Error updating product in DB:", err));
+
       showToast(`Đã cập nhật "${formName}" thành công!`);
     } else {
       // CREATE
@@ -869,6 +879,21 @@ export default function App() {
         colors: colorsArr,
       };
       setProducts((prev) => [newProduct, ...prev]);
+
+      // Lưu sản phẩm mới vào MongoDB
+      fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProduct),
+      })
+        .then((res) => res.json())
+        .then((resData) => {
+          if (!resData.success) {
+            console.error("API error adding product:", resData.error);
+          }
+        })
+        .catch((err) => console.error("Error adding product to DB:", err));
+
       showToast(`Đã thêm mới sản phẩm "${formName}"!`);
     }
 
@@ -1441,7 +1466,7 @@ export default function App() {
                       </h1>
                     </div>
                     <p className="text-xs text-neutral-500 mt-1">
-                      Dữ liệu được lưu trữ trực tiếp trên máy của bạn (Local Storage) và đồng bộ tức thì với cửa hàng.
+                      Dữ liệu được lưu trữ và đồng bộ trực tiếp với cơ sở dữ liệu MongoDB.
                     </p>
                   </div>
 
