@@ -37,22 +37,22 @@ app.get('/api/products', async (req, res) => {
 
 // 2.1. Thêm sản phẩm mới vào MongoDB
 app.post('/api/products', async (req, res) => {
-  const {
-    id,
-    name,
-    category,
-    price,
-    originalPrice,
-    rating,
-    reviewsCount,
-    image,
-    tag,
-    description,
-    specs,
-    colors,
-  } = req.body;
-
   try {
+    const {
+      id,
+      name,
+      category,
+      price,
+      originalPrice,
+      rating,
+      reviewsCount,
+      image,
+      tag,
+      description,
+      specs,
+      colors,
+    } = req.body || {};
+
     let prodId = id;
     if (!prodId) {
       const maxProd = await Product.findOne().sort({ id: -1 }).lean();
@@ -89,21 +89,20 @@ app.post('/api/products', async (req, res) => {
 // 2.2. Cập nhật sản phẩm trong MongoDB
 app.put('/api/products/:id', async (req, res) => {
   const id = Number(req.params.id);
-  const {
-    name,
-    category,
-    price,
-    originalPrice,
-    rating,
-    reviewsCount,
-    image,
-    tag,
-    description,
-    specs,
-    colors,
-  } = req.body;
-
   try {
+    const {
+      name,
+      category,
+      price,
+      originalPrice,
+      rating,
+      reviewsCount,
+      image,
+      tag,
+      description,
+      specs,
+      colors,
+    } = req.body || {};
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (category !== undefined) updateData.category = category;
