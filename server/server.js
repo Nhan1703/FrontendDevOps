@@ -211,8 +211,21 @@ app.put('/api/users/:id', async (req, res) => {
 app.delete('/api/users/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await User.findOneAndDelete({ id });
-    res.json({ success: true, message: 'Đã xóa người dùng khỏi Database!' });
+    const user = await User.findOne({ id });
+    if (user) {
+      await User.findOneAndDelete({ id });
+      // Tự động xóa tất cả các đơn hàng thuộc về người dùng này
+      await Order.deleteMany({
+        $or: [
+          { userId: id },
+          { customerEmail: new RegExp(`^${user.email}$`, 'i') },
+        ],
+      });
+    }
+    res.json({
+      success: true,
+      message: 'Đã xóa người dùng và toàn bộ đơn hàng liên quan khỏi Database!',
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -297,7 +310,19 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 app.delete('/api/orders/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await Order.findOneAndDelete({ id });
+    const order = await Order.findOne({ id });
+    if (order) {
+      await Order.findOneAndDelete({ id });
+      if (order.customerEmail) {
+        await User.findOneAndUpdate(
+          {
+            email: new RegExp(`^${order.customerEmail}$`, 'i'),
+            ordersCount: { $gt: 0 },
+          },
+          { $inc: { ordersCount: -1 } }
+        );
+      }
+    }
     res.json({ success: true, message: 'Đã xóa đơn hàng khỏi Database!' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

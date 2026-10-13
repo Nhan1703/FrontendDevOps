@@ -1034,11 +1034,19 @@ export default function App() {
     }
     if (confirm(`Bạn có chắc muốn xóa tài khoản "${userToDelete.name}" (${userToDelete.email})?`)) {
       setAppUsers((prev) => prev.filter((u) => u.id !== userId));
-      // Xóa người dùng khỏi SQL Server
+      // Xóa luôn toàn bộ đơn hàng của người dùng này trong danh sách
+      setOrders((prev) =>
+        prev.filter(
+          (o) =>
+            o.userId !== userId &&
+            o.customerEmail?.toLowerCase() !== userToDelete.email.toLowerCase()
+        )
+      );
+      // Xóa người dùng và các đơn hàng khỏi MongoDB
       fetch(`/api/users/${userId}`, {
         method: "DELETE",
       }).catch((err) => console.error("Error deleting user in DB:", err));
-      showToast(`Đã xóa người dùng "${userToDelete.name}"`);
+      showToast(`Đã xóa tài khoản "${userToDelete.name}" và toàn bộ đơn hàng của tài khoản này`);
     }
   };
 
@@ -2082,9 +2090,19 @@ export default function App() {
                                 </td>
 
                                 <td className="py-3 px-4 whitespace-nowrap">
-                                  <span className="font-bold text-neutral-900 px-2 py-0.5 rounded bg-neutral-100 text-xs">
-                                    {u.ordersCount} đơn
-                                  </span>
+                                  {(() => {
+                                    const userMatchingCount = orders.filter(
+                                      (o) =>
+                                        o.userId === u.id ||
+                                        (o.customerEmail &&
+                                          o.customerEmail.toLowerCase() === u.email.toLowerCase())
+                                    ).length;
+                                    return (
+                                      <span className="font-bold text-neutral-900 px-2 py-0.5 rounded bg-neutral-100 text-xs">
+                                        {userMatchingCount} đơn
+                                      </span>
+                                    );
+                                  })()}
                                 </td>
 
                                 <td className="py-3 px-4 whitespace-nowrap">
@@ -4094,9 +4112,28 @@ export default function App() {
                   </div>
                 </div>
 
+                {!customerUser && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center justify-between gap-2">
+                    <span className="font-medium">⚠️ Vui lòng đăng nhập tài khoản để đặt hàng</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0"
+                    >
+                      Đăng nhập
+                    </button>
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
-                    const finalPhone = checkoutPhone.trim() || (customerUser?.phone || "0912345678");
+                    if (!customerUser) {
+                      showToast("Vui lòng đăng nhập tài khoản trước khi đặt hàng!");
+                      setIsAuthModalOpen(true);
+                      return;
+                    }
+
+                    const finalPhone = checkoutPhone.trim() || (customerUser.phone || "0912345678");
                     const finalAddress = checkoutAddress.trim() || "Giao hàng tận nơi (Toàn quốc)";
                     const finalNote = checkoutNote.trim() || "Đơn đặt trực tiếp từ Giỏ hàng Cửa hàng";
                     const newOrderId = `DH-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -4111,9 +4148,9 @@ export default function App() {
 
                     const newOrder: Order = {
                       id: newOrderId,
-                      userId: customerUser?.id,
-                      customerName: customerUser ? customerUser.name : "Khách Vãng Lai",
-                      customerEmail: customerUser ? customerUser.email : "khachhang@thenhanshop.vn",
+                      userId: customerUser.id,
+                      customerName: customerUser.name,
+                      customerEmail: customerUser.email,
                       customerPhone: finalPhone,
                       customerAddress: finalAddress,
                       items: cart.map((item) => ({
@@ -4132,17 +4169,15 @@ export default function App() {
 
                     setOrders((prev) => [newOrder, ...prev]);
 
-                    if (customerUser) {
-                      setAppUsers((prev) =>
-                        prev.map((u) =>
-                          u.email.toLowerCase() === customerUser.email.toLowerCase()
-                            ? { ...u, ordersCount: u.ordersCount + 1 }
-                            : u
-                        )
-                      );
-                    }
+                    setAppUsers((prev) =>
+                      prev.map((u) =>
+                        u.email.toLowerCase() === customerUser.email.toLowerCase()
+                          ? { ...u, ordersCount: (u.ordersCount || 0) + 1 }
+                          : u
+                      )
+                    );
 
-                    // Đồng bộ lưu đơn hàng và ghi chú vào SQL Server
+                    // Đồng bộ lưu đơn hàng vào MongoDB
                     fetch("/api/orders", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -4157,7 +4192,7 @@ export default function App() {
                       .catch((err) => console.error("Error creating order in DB:", err));
 
                     alert(
-                      `🎉 Đặt hàng thành công! Mã đơn: ${newOrderId}.\n📍 Giao đến: ${finalAddress}\n📞 SĐT: ${finalPhone}\n📝 Ghi chú: ${finalNote}\n\nĐơn hàng đã được lưu và gửi tới hệ thống quản lý TheNhanShop.`
+                      `🎉 Đặt hàng thành công! Mã đơn: ${newOrderId}.\n👤 Khách hàng: ${customerUser.name} (${customerUser.email})\n📍 Giao đến: ${finalAddress}\n📞 SĐT: ${finalPhone}\n📝 Ghi chú: ${finalNote}\n\nĐơn hàng đã được lưu và gửi tới hệ thống quản lý TheNhanShop.`
                     );
                     setCart([]);
                     setCheckoutPhone("");
@@ -4165,9 +4200,11 @@ export default function App() {
                     setCheckoutNote("");
                     setIsCartOpen(false);
                   }}
-                  className="w-full py-3 bg-neutral-950 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
+                  className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-98 cursor-pointer ${
+                    customerUser ? "bg-neutral-950 hover:bg-neutral-800" : "bg-amber-600 hover:bg-amber-700"
+                  }`}
                 >
-                  Xác nhận đặt hàng
+                  {customerUser ? "Xác nhận đặt hàng" : "Đăng nhập để đặt hàng"}
                 </button>
               </div>
             )}
