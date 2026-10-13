@@ -383,6 +383,12 @@ export default function App() {
   const [formRating, setFormRating] = useState("0");
   const [formReviewsCount, setFormReviewsCount] = useState("0");
 
+  // ================= PAGINATION STATES (8 SẢN PHẨM / TRANG) =================
+  const [storePage, setStorePage] = useState(1);
+  const STORE_ITEMS_PER_PAGE = 8;
+  const [adminProductPage, setAdminProductPage] = useState(1);
+  const ADMIN_ITEMS_PER_PAGE = 8;
+
   // ================= ADMIN SESSION (ĐỘC LẬP VỚI SHOP) =================
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
@@ -726,6 +732,17 @@ export default function App() {
     });
   }, [products, selectedCategory, searchQuery]);
 
+  // Phân trang Store: 8 sản phẩm / trang
+  const storeTotalPages = Math.ceil(filteredProducts.length / STORE_ITEMS_PER_PAGE) || 1;
+  const paginatedStoreProducts = useMemo(() => {
+    const start = (storePage - 1) * STORE_ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + STORE_ITEMS_PER_PAGE);
+  }, [filteredProducts, storePage]);
+
+  useEffect(() => {
+    setStorePage(1);
+  }, [selectedCategory, searchQuery]);
+
   // Lọc sản phẩm trong Admin
   const adminFilteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -737,6 +754,17 @@ export default function App() {
       return matchCat && matchSearch;
     });
   }, [products, adminCategoryFilter, adminSearch]);
+
+  // Phân trang Admin Products: 8 sản phẩm / trang
+  const adminTotalPages = Math.ceil(adminFilteredProducts.length / ADMIN_ITEMS_PER_PAGE) || 1;
+  const paginatedAdminProducts = useMemo(() => {
+    const start = (adminProductPage - 1) * ADMIN_ITEMS_PER_PAGE;
+    return adminFilteredProducts.slice(start, start + ADMIN_ITEMS_PER_PAGE);
+  }, [adminFilteredProducts, adminProductPage]);
+
+  useEffect(() => {
+    setAdminProductPage(1);
+  }, [adminCategoryFilter, adminSearch]);
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalCartPrice = cart.reduce(
@@ -1572,7 +1600,7 @@ export default function App() {
                             </td>
                           </tr>
                         ) : (
-                          adminFilteredProducts.map((product) => (
+                          paginatedAdminProducts.map((product) => (
                             <tr key={product.id} className="hover:bg-neutral-50/60 transition-colors">
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-3">
@@ -1646,6 +1674,47 @@ export default function App() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Phân trang Admin (8 sản phẩm / trang) */}
+                  {adminTotalPages > 1 && (
+                    <div className="px-4 py-3 bg-neutral-50/60 border-t border-neutral-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                      <div className="text-neutral-500">
+                        Hiển thị <span className="font-semibold text-neutral-900">{(adminProductPage - 1) * ADMIN_ITEMS_PER_PAGE + 1}</span> - <span className="font-semibold text-neutral-900">{Math.min(adminProductPage * ADMIN_ITEMS_PER_PAGE, adminFilteredProducts.length)}</span> trên tổng số <span className="font-semibold text-neutral-900">{adminFilteredProducts.length}</span> sản phẩm
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setAdminProductPage((p) => Math.max(1, p - 1))}
+                          disabled={adminProductPage === 1}
+                          className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-neutral-700 transition-colors cursor-pointer"
+                        >
+                          Trước
+                        </button>
+                        {Array.from({ length: adminTotalPages }, (_, i) => i + 1).map((pg) => (
+                          <button
+                            key={pg}
+                            type="button"
+                            onClick={() => setAdminProductPage(pg)}
+                            className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                              adminProductPage === pg
+                                ? "bg-neutral-950 text-white shadow-xs"
+                                : "bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700"
+                            }`}
+                          >
+                            {pg}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setAdminProductPage((p) => Math.min(adminTotalPages, p + 1))}
+                          disabled={adminProductPage === adminTotalPages}
+                          className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-neutral-700 transition-colors cursor-pointer"
+                        >
+                          Sau
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -3297,79 +3366,134 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  onClick={() => handleOpenDetail(product)}
-                  className="group bg-white rounded-xl border border-neutral-200/80 overflow-hidden hover:border-neutral-400 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between"
-                >
-                  {/* Image Box */}
-                  <div className="relative h-44 sm:h-48 w-full bg-neutral-100 overflow-hidden">
-                    {product.tag && (
-                      <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-900 text-white">
-                        {product.tag}
-                      </span>
-                    )}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="bg-white/90 backdrop-blur-sm text-neutral-900 text-[11px] font-semibold px-3 py-1.5 rounded-full shadow flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" /> Xem chi tiết
-                      </span>
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                {paginatedStoreProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    onClick={() => handleOpenDetail(product)}
+                    className="group bg-white rounded-xl border border-neutral-200/80 overflow-hidden hover:border-neutral-400 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                  >
+                    {/* Image Box */}
+                    <div className="relative h-44 sm:h-48 w-full bg-neutral-100 overflow-hidden">
+                      {product.tag && (
+                        <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-900 text-white">
+                          {product.tag}
+                        </span>
+                      )}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="bg-white/90 backdrop-blur-sm text-neutral-900 text-[11px] font-semibold px-3 py-1.5 rounded-full shadow flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5" /> Xem chi tiết
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-3.5 flex-1 flex flex-col justify-between">
+                      <div>
+                        {/* Category & Rating */}
+                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
+                          <span>{product.category}</span>
+                          {product.reviewsCount > 0 ? (
+                            <span className="flex items-center text-amber-500 font-medium">
+                              <Star className="w-3 h-3 fill-current mr-0.5" />
+                              {product.rating} ({product.reviewsCount})
+                            </span>
+                          ) : (
+                            <span className="text-neutral-400">Chưa có đánh giá</span>
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-xs font-semibold text-neutral-900 line-clamp-2 leading-snug mb-2 group-hover:text-neutral-600 transition-colors">
+                          {product.name}
+                        </h3>
+                      </div>
+
+                      {/* Price & Action */}
+                      <div className="pt-2 border-t border-neutral-100 flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-bold text-neutral-950">
+                            {formatVND(product.price)}
+                          </div>
+                          {product.originalPrice > product.price && (
+                            <div className="text-[10px] text-neutral-400 line-through">
+                              {formatVND(product.originalPrice)}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={(e) => handleQuickAdd(e, product)}
+                          className="p-2 rounded-lg bg-neutral-100 hover:bg-neutral-900 hover:text-white text-neutral-700 transition-all cursor-pointer"
+                          title="Thêm nhanh vào giỏ"
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  {/* Content */}
-                  <div className="p-3.5 flex-1 flex flex-col justify-between">
-                    <div>
-                      {/* Category & Rating */}
-                      <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
-                        <span>{product.category}</span>
-                        {product.reviewsCount > 0 ? (
-                          <span className="flex items-center text-amber-500 font-medium">
-                            <Star className="w-3 h-3 fill-current mr-0.5" />
-                            {product.rating} ({product.reviewsCount})
-                          </span>
-                        ) : (
-                          <span className="text-neutral-400">Chưa có đánh giá</span>
-                        )}
-                      </div>
+              {/* Phân trang Cửa hàng (8 sản phẩm / trang) */}
+              {storeTotalPages > 1 && (
+                <div className="mt-8 pt-6 border-t border-neutral-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-xs text-neutral-500">
+                    Hiển thị <span className="font-semibold text-neutral-900">{(storePage - 1) * STORE_ITEMS_PER_PAGE + 1}</span> - <span className="font-semibold text-neutral-900">{Math.min(storePage * STORE_ITEMS_PER_PAGE, filteredProducts.length)}</span> trên tổng số <span className="font-semibold text-neutral-900">{filteredProducts.length}</span> sản phẩm
+                  </div>
 
-                      {/* Title */}
-                      <h3 className="text-xs font-semibold text-neutral-900 line-clamp-2 leading-snug mb-2 group-hover:text-neutral-600 transition-colors">
-                        {product.name}
-                      </h3>
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStorePage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 350, behavior: "smooth" });
+                      }}
+                      disabled={storePage === 1}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-neutral-200 text-neutral-700 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      ← Trước
+                    </button>
 
-                    {/* Price & Action */}
-                    <div className="pt-2 border-t border-neutral-100 flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-sm font-bold text-neutral-950">
-                          {formatVND(product.price)}
-                        </div>
-                        {product.originalPrice > product.price && (
-                          <div className="text-[10px] text-neutral-400 line-through">
-                            {formatVND(product.originalPrice)}
-                          </div>
-                        )}
-                      </div>
-
+                    {Array.from({ length: storeTotalPages }, (_, i) => i + 1).map((pageNum) => (
                       <button
-                        onClick={(e) => handleQuickAdd(e, product)}
-                        className="p-2 rounded-lg bg-neutral-100 hover:bg-neutral-900 hover:text-white text-neutral-700 transition-all"
-                        title="Thêm nhanh vào giỏ"
+                        key={pageNum}
+                        type="button"
+                        onClick={() => {
+                          setStorePage(pageNum);
+                          window.scrollTo({ top: 350, behavior: "smooth" });
+                        }}
+                        className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                          storePage === pageNum
+                            ? "bg-neutral-950 text-white shadow-xs"
+                            : "bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                        }`}
                       >
-                        <ShoppingCart className="w-3.5 h-3.5" />
+                        {pageNum}
                       </button>
-                    </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStorePage((p) => Math.min(storeTotalPages, p + 1));
+                        window.scrollTo({ top: 350, behavior: "smooth" });
+                      }}
+                      disabled={storePage === storeTotalPages}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-neutral-200 text-neutral-700 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      Sau →
+                    </button>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </main>
