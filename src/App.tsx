@@ -615,8 +615,12 @@ export default function App() {
       setCustomerUser(customer);
       localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
 
-      // Tự động thêm vào danh sách Quản lý người dùng trong Admin & SQL Server
-      const nextUserId = `USR-${String(appUsers.length + 1).padStart(3, "0")}`;
+      // Tự động thêm vào danh sách Quản lý người dùng trong Admin & Database
+      const maxIdNum = appUsers.reduce((max, u) => {
+        const match = u.id.match(/^USR-(\d+)$/);
+        return match ? Math.max(max, parseInt(match[1], 10)) : max;
+      }, 0);
+      const nextUserId = `USR-${String(maxIdNum + 1).padStart(3, "0")}`;
       const newCustomerUser: AppUser = {
         id: nextUserId,
         name: customer.name,
@@ -1027,7 +1031,11 @@ export default function App() {
       return;
     }
 
-    const nextId = `USR-${String(appUsers.length + 1).padStart(3, "0")}`;
+    const maxIdNum = appUsers.reduce((max, u) => {
+      const match = u.id.match(/^USR-(\d+)$/);
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 0);
+    const nextId = `USR-${String(maxIdNum + 1).padStart(3, "0")}`;
     const defaultPass = newUserRole === "admin" ? "admin123" : "kh123";
     const newUser: AppUser = {
       id: nextId,
@@ -1040,7 +1048,7 @@ export default function App() {
       createdAt: new Date().toLocaleDateString("vi-VN"),
       ordersCount: 0,
     };
-    setAppUsers((prev) => [newUser, ...prev]);
+    setAppUsers((prev) => [...prev, newUser]);
 
     // Gửi API lưu người dùng vào SQL Server
     fetch("/api/users", {
@@ -1149,7 +1157,7 @@ export default function App() {
   };
 
   const adminFilteredUsers = useMemo(() => {
-    return appUsers.filter((u) => {
+    const list = appUsers.filter((u) => {
       const matchRole = userRoleFilter === "all" || u.role === userRoleFilter;
       const matchStatus = userStatusFilter === "all" || u.status === userStatusFilter;
       const q = userSearch.toLowerCase().trim();
@@ -1160,6 +1168,13 @@ export default function App() {
         (u.phone && u.phone.includes(q)) ||
         u.id.toLowerCase().includes(q);
       return matchRole && matchStatus && matchSearch;
+    });
+
+    // Luôn ghim Quản trị viên gốc (Admin) lên đầu tiên, các tài khoản khác sắp xếp bên dưới theo ID
+    return [...list].sort((a, b) => {
+      if (isRootAdmin(a)) return -1;
+      if (isRootAdmin(b)) return 1;
+      return a.id.localeCompare(b.id);
     });
   }, [appUsers, userRoleFilter, userStatusFilter, userSearch]);
 
