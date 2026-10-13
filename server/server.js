@@ -155,7 +155,7 @@ app.get('/api/users', async (req, res) => {
 
 // 4. Thêm người dùng mới vào MongoDB
 app.post('/api/users', async (req, res) => {
-  const { id, name, email, password, phone, role, status, createdAt } = req.body;
+  const { id, name, email, password, phone, role, status, createdAt } = req.body || {};
   try {
     const cleanEmail = (email || '').trim();
     if (!cleanEmail) {
@@ -209,7 +209,7 @@ app.post('/api/users', async (req, res) => {
 // 5. Cập nhật thông tin / trạng thái người dùng
 app.put('/api/users/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, email, password, phone, role, status } = req.body;
+  const { name, email, password, phone, role, status } = req.body || {};
   try {
     const updateData = {};
     if (name !== undefined) updateData.name = name;
