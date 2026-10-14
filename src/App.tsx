@@ -250,10 +250,12 @@ export default function App() {
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [modalQuantity, setModalQuantity] = useState<number>(1);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<"success" | "error">("success");
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+    setToastType(type);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // ================= ADMIN TABS & MANAGEMENT STATES =================
@@ -487,16 +489,20 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
   const [authPhone, setAuthPhone] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Customer Auth handlers (Chỉ cho khách hàng, không can thiệp Admin)
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     if (authMode === "login") {
       const cleanLogin = authEmail.trim();
       const cleanPassword = authPassword.trim();
 
       if (!cleanLogin || !cleanPassword) {
-        showToast("Vui lòng điền đầy đủ tài khoản/email và mật khẩu!");
+        const msg = "Vui lòng điền đầy đủ tài khoản/email và mật khẩu!";
+        setAuthError(msg);
+        showToast(msg, "error");
         return;
       }
 
@@ -513,7 +519,9 @@ export default function App() {
       if (matchedAdmin || cleanLogin.toLowerCase() === "admin") {
         const adminToAuth = matchedAdmin || appUsers.find((u) => u.email.toLowerCase() === "admin");
         if (adminToAuth?.status === "locked") {
-          showToast(`Tài khoản Quản trị viên "${adminToAuth.name}" đang bị khóa bởi hệ thống!`);
+          const msg = `Tài khoản Quản trị viên "${adminToAuth.name}" đang bị khóa bởi hệ thống!`;
+          setAuthError(msg);
+          showToast(msg, "error");
           return;
         }
 
@@ -526,11 +534,15 @@ export default function App() {
           setIsAuthModalOpen(false);
           setAuthEmail("");
           setAuthPassword("");
+          setAuthPhone("");
+          setAuthError(null);
           showToast(`Đăng nhập Admin (${adminToAuth?.name || "admin"}) thành công! Đang chuyển đến trang Quản trị...`);
           navigateView("admin");
           return;
         } else {
-          showToast(`Mật khẩu Admin không đúng! (Mật khẩu: ${expectedAdminPass})`);
+          const msg = `Mật khẩu Admin không đúng! (Mật khẩu: ${expectedAdminPass})`;
+          setAuthError(msg);
+          showToast(msg, "error");
           return;
         }
       }
@@ -547,7 +559,9 @@ export default function App() {
       // Kiểm tra mật khẩu khách hàng: Chấp nhận mật khẩu đã cài đặt hoặc mặc định là kh123
       const expectedCustomerPass = matchedUser?.password || "kh123";
       if (cleanPassword !== expectedCustomerPass && cleanPassword !== "kh123") {
-        showToast(`Mật khẩu không đúng! Mật khẩu cho tài khoản này là: ${expectedCustomerPass}`);
+        const msg = `Mật khẩu không đúng! Mật khẩu cho tài khoản này là: ${expectedCustomerPass}`;
+        setAuthError(msg);
+        showToast(msg, "error");
         return;
       }
 
@@ -557,7 +571,9 @@ export default function App() {
 
       if (matchedUser) {
         if (matchedUser.status === "locked") {
-          showToast(`Tài khoản "${matchedUser.name}" đang bị khóa bởi Quản trị viên! Vui lòng liên hệ hỗ trợ.`);
+          const msg = `Tài khoản "${matchedUser.name}" đang bị khóa bởi Quản trị viên! Vui lòng liên hệ hỗ trợ.`;
+          setAuthError(msg);
+          showToast(msg, "error");
           return;
         }
 
@@ -569,6 +585,10 @@ export default function App() {
         setCustomerUser(customer);
         localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
         setIsAuthModalOpen(false);
+        setAuthEmail("");
+        setAuthPassword("");
+        setAuthPhone("");
+        setAuthError(null);
         showToast(`Chào mừng ${customer.name} đã quay trở lại!`);
       } else {
         // Khách hàng mới chưa có trong hệ thống -> Tự động thêm vào Quản lý người dùng
@@ -610,7 +630,9 @@ export default function App() {
       const cleanPhone = authPhone.trim();
 
       if (!cleanName || !cleanEmail || !cleanPass) {
-        showToast("Vui lòng điền đầy đủ Họ tên, Email và Mật khẩu!");
+        const msg = "Vui lòng điền đầy đủ Họ tên, Email và Mật khẩu!";
+        setAuthError(msg);
+        showToast(msg, "error");
         return;
       }
 
@@ -619,7 +641,9 @@ export default function App() {
         (u) => u.email.toLowerCase() === cleanEmail.toLowerCase()
       );
       if (emailExists) {
-        showToast("Email này đã được đăng ký, vui lòng sử dụng email khác hoặc đăng nhập!");
+        const msg = "Email này đã được đăng ký, vui lòng sử dụng email khác hoặc đăng nhập!";
+        setAuthError(msg);
+        showToast(msg, "error");
         return;
       }
 
@@ -629,7 +653,9 @@ export default function App() {
           (u) => u.phone && u.phone.trim() === cleanPhone
         );
         if (phoneExists) {
-          showToast("Số điện thoại này đã được sử dụng bởi tài khoản khác!");
+          const msg = "Số điện thoại này đã được sử dụng bởi tài khoản khác!";
+          setAuthError(msg);
+          showToast(msg, "error");
           return;
         }
       }
@@ -661,7 +687,9 @@ export default function App() {
         .then(async (res) => {
           const resData = await res.json();
           if (!res.ok || !resData.success) {
-            showToast(resData.message || "Đăng ký không thành công!");
+            const msg = resData.message || "Đăng ký không thành công!";
+            setAuthError(msg);
+            showToast(msg, "error");
             return;
           }
 
@@ -683,11 +711,14 @@ export default function App() {
           setAuthPassword("");
           setAuthName("");
           setAuthPhone("");
+          setAuthError(null);
           showToast(`Đăng ký tài khoản thành công! Xin chào ${customer.name}`);
         })
         .catch((err) => {
           console.error("Error creating customer in DB:", err);
-          showToast("Lỗi kết nối máy chủ khi đăng ký tài khoản!");
+          const msg = "Lỗi kết nối máy chủ khi đăng ký tài khoản!";
+          setAuthError(msg);
+          showToast(msg, "error");
         });
       return;
     }
@@ -1118,14 +1149,14 @@ export default function App() {
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserEmail.trim()) {
-      showToast("Vui lòng điền đủ Tên và Email!");
+      showToast("Vui lòng điền đủ Tên và Email!", "error");
       return;
     }
     const exists = appUsers.some(
       (u) => u.email.toLowerCase() === newUserEmail.trim().toLowerCase()
     );
     if (exists) {
-      showToast("Email/tài khoản này đã tồn tại!");
+      showToast("Email/tài khoản này đã tồn tại!", "error");
       return;
     }
 
@@ -1135,7 +1166,7 @@ export default function App() {
         (u) => u.phone && u.phone.trim() === cleanNewPhone
       );
       if (phoneExists) {
-        showToast("Số điện thoại này đã được sử dụng bởi người dùng khác!");
+        showToast("Số điện thoại này đã được sử dụng bởi người dùng khác!", "error");
         return;
       }
     }
@@ -1206,7 +1237,7 @@ export default function App() {
       return;
     }
     if (!editUserName.trim() || !editUserEmail.trim() || !editUserPassword.trim()) {
-      showToast("Vui lòng điền đủ Họ tên, Email và Mật khẩu!");
+      showToast("Vui lòng điền đủ Họ tên, Email và Mật khẩu!", "error");
       return;
     }
     const duplicate = appUsers.some(
@@ -1215,7 +1246,7 @@ export default function App() {
         u.email.toLowerCase() === editUserEmail.trim().toLowerCase()
     );
     if (duplicate) {
-      showToast("Email/tài khoản này đã được sử dụng bởi người dùng khác!");
+      showToast("Email/tài khoản này đã được sử dụng bởi người dùng khác!", "error");
       return;
     }
 
@@ -1228,7 +1259,7 @@ export default function App() {
           u.phone.trim() === cleanEditPhone
       );
       if (phoneDuplicate) {
-        showToast("Số điện thoại này đã được sử dụng bởi người dùng khác!");
+        showToast("Số điện thoại này đã được sử dụng bởi người dùng khác!", "error");
         return;
       }
     }
@@ -1310,9 +1341,19 @@ export default function App() {
       <div className="min-h-screen bg-[#fafafa] text-neutral-800 flex flex-col antialiased">
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="fixed top-6 right-6 z-50 bg-neutral-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 border border-neutral-800 animate-in fade-in slide-in-from-top-2 duration-200">
-            <Check className="w-4 h-4 text-emerald-400" />
-            {toastMessage}
+          <div
+            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-auto px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 border text-xs font-semibold animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none ${
+              toastType === "error"
+                ? "bg-rose-600 text-white border-rose-700 shadow-rose-900/30"
+                : "bg-neutral-900 text-white border-neutral-800 shadow-neutral-900/40"
+            }`}
+          >
+            {toastType === "error" ? (
+              <AlertCircle className="w-4 h-4 text-white shrink-0" />
+            ) : (
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <span>{toastMessage}</span>
           </div>
         )}
 
@@ -3129,9 +3170,19 @@ export default function App() {
     <div className="min-h-screen bg-[#fafafa] text-neutral-800 flex flex-col antialiased">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-neutral-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 border border-neutral-800 animate-in fade-in slide-in-from-top-2 duration-200">
-          <Check className="w-4 h-4 text-emerald-400" />
-          {toastMessage}
+        <div
+          className={`fixed top-6 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-auto px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 border text-xs font-semibold animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-none ${
+            toastType === "error"
+              ? "bg-rose-600 text-white border-rose-700 shadow-rose-900/30"
+              : "bg-neutral-900 text-white border-neutral-800 shadow-neutral-900/40"
+          }`}
+        >
+          {toastType === "error" ? (
+            <AlertCircle className="w-4 h-4 text-white shrink-0" />
+          ) : (
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
+          <span>{toastMessage}</span>
         </div>
       )}
 
@@ -3533,7 +3584,10 @@ export default function App() {
             {/* Switch Tabs */}
             <div className="flex bg-neutral-100 p-1 rounded-xl mb-5">
               <button
-                onClick={() => setAuthMode("login")}
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthError(null);
+                }}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
                   authMode === "login"
                     ? "bg-white text-neutral-950 shadow-sm"
@@ -3543,7 +3597,10 @@ export default function App() {
                 Đăng nhập
               </button>
               <button
-                onClick={() => setAuthMode("register")}
+                onClick={() => {
+                  setAuthMode("register");
+                  setAuthError(null);
+                }}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
                   authMode === "register"
                     ? "bg-white text-neutral-950 shadow-sm"
@@ -3556,6 +3613,14 @@ export default function App() {
 
             {/* Form */}
             <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+              {/* Inline Error Message */}
+              {authError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2.5 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span className="font-semibold leading-relaxed">{authError}</span>
+                </div>
+              )}
+
               {authMode === "register" && (
                 <>
                   <div>
