@@ -3,7 +3,7 @@ version: '3.8'
 services:
   mongodb:
     image: mongo:7.0
-    container_name: thenhanshop-mongodb
+    container_name: bookstore-mongodb
     restart: always
     ports:
       - "27017:27017"
@@ -16,13 +16,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: thenhanshop-backend
+    container_name: bookstore-backend
     restart: always
     depends_on:
       - mongodb
     environment:
       - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/thenhanshop
+      - MONGO_URI=mongodb://mongodb:27017/bookstore
     ports:
       - "5000:5000"
     networks:
@@ -32,7 +32,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: thenhanshop-frontend
+    container_name: bookstore-frontend
     restart: always
     depends_on:
       - backend

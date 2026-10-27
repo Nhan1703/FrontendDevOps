@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/thenhanshop';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/bookstore';
 
 // ==========================================
 // 1. Mongoose Schemas & Models
@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Schema Sản phẩm
+// Schema Sản phẩm Sách (BookStore)
 const productSchema = new mongoose.Schema(
   {
     id: { type: Number, required: true, unique: true },
@@ -45,7 +45,7 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Schema Mặt hàng trong giỏ/đơn
+// Schema Mặt hàng trong đơn đặt sách
 const orderItemSchema = new mongoose.Schema(
   {
     id: Number,
@@ -58,7 +58,7 @@ const orderItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// Schema Đơn hàng
+// Schema Đơn hàng Sách
 const orderSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
@@ -95,7 +95,7 @@ export const Product = mongoose.model('Product', productSchema);
 export const Order = mongoose.model('Order', orderSchema);
 
 // ==========================================
-// 2. Dữ liệu hạt giống ban đầu (Seed Data)
+// 2. Dữ liệu mẫu BookStore - DevOps ST23B Nhóm 1
 // ==========================================
 const INITIAL_USERS = [
   {
@@ -111,62 +111,7 @@ const INITIAL_USERS = [
   },
   {
     id: 'USR-002',
-    name: 'Nguyễn Văn An',
-    email: 'nguyenvanan@gmail.com',
-    password: 'kh123',
-    phone: '0912 345 678',
-    role: 'customer',
-    status: 'active',
-    createdAt: '15/05/2026',
-    ordersCount: 3,
-  },
-  {
-    id: 'USR-003',
-    name: 'Trần Thị Bích',
-    email: 'bich.tran@gmail.com',
-    password: 'kh123',
-    phone: '0988 765 432',
-    role: 'customer',
-    status: 'active',
-    createdAt: '22/07/2026',
-    ordersCount: 1,
-  },
-  {
-    id: 'USR-004',
-    name: 'Lê Hoàng Long',
-    email: 'long.le@gmail.com',
-    password: 'kh123',
-    phone: '0903 112 233',
-    role: 'customer',
-    status: 'active',
-    createdAt: '10/08/2026',
-    ordersCount: 2,
-  },
-  {
-    id: 'USR-005',
-    name: 'Phạm Minh Đức',
-    email: 'duc.pham@outlook.com',
-    password: 'kh123',
-    phone: '0934 556 778',
-    role: 'customer',
-    status: 'active',
-    createdAt: '28/08/2026',
-    ordersCount: 1,
-  },
-  {
-    id: 'USR-006',
-    name: 'Vũ Hải Nam',
-    email: 'hainam.vu@yahoo.com',
-    password: 'kh123',
-    phone: '0977 889 900',
-    role: 'customer',
-    status: 'active',
-    createdAt: '02/09/2026',
-    ordersCount: 0,
-  },
-  {
-    id: 'USR-007',
-    name: 'Thế Nhân',
+    name: 'Đinh Ngọc Thế Nhân (Nhóm 1)',
     email: 'thenhan',
     password: 'admin123',
     phone: '0917 714 595',
@@ -175,223 +120,278 @@ const INITIAL_USERS = [
     createdAt: '08/09/2026',
     ordersCount: 0,
   },
+  {
+    id: 'USR-003',
+    name: 'Hoàng Trường Ân (Nhóm 1)',
+    email: 'truongan',
+    password: 'admin123',
+    phone: '0901 112 233',
+    role: 'admin',
+    status: 'active',
+    createdAt: '08/09/2026',
+    ordersCount: 0,
+  },
+  {
+    id: 'USR-004',
+    name: 'Cao Đình Bảo (Nhóm 1)',
+    email: 'dinhbao',
+    password: 'admin123',
+    phone: '0902 223 344',
+    role: 'admin',
+    status: 'active',
+    createdAt: '08/09/2026',
+    ordersCount: 0,
+  },
+  {
+    id: 'USR-005',
+    name: 'Huỳnh Phước Quân (Nhóm 1)',
+    email: 'phuocquan',
+    password: 'admin123',
+    phone: '0903 334 455',
+    role: 'admin',
+    status: 'active',
+    createdAt: '08/09/2026',
+    ordersCount: 0,
+  },
+  {
+    id: 'USR-006',
+    name: 'Nguyễn Hoàng Nam',
+    email: 'hoangnam@gmail.com',
+    password: 'kh123',
+    phone: '0912 345 678',
+    role: 'customer',
+    status: 'active',
+    createdAt: '15/05/2026',
+    ordersCount: 2,
+  },
+  {
+    id: 'USR-007',
+    name: 'Trần Thảo My',
+    email: 'thaomy.tran@gmail.com',
+    password: 'kh123',
+    phone: '0988 765 432',
+    role: 'customer',
+    status: 'active',
+    createdAt: '22/07/2026',
+    ordersCount: 1,
+  },
 ];
 
 const INITIAL_PRODUCTS = [
   {
     id: 1,
-    name: 'Tai nghe Bluetooth True Wireless Mini V5.3',
-    category: 'Tai nghe & Loa',
-    price: 189000,
-    originalPrice: 280000,
-    rating: 4.8,
-    reviewsCount: 342,
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
-    tag: 'Bán chạy',
-    description: 'Tai nghe Bluetooth mini thiết kế nhỏ gọn, chống ồn đàm thoại ENC, thời lượng pin 24h kèm dock sạc, âm bass ấm, kết nối ổn định độ trễ thấp phù hợp nghe nhạc và học tập.',
-    specs: ['Bluetooth 5.3', 'Pin 24 tiếng', 'Cảm ứng chạm đa điểm', 'Chống nước IPX4'],
-    colors: ['Trắng Tinh Khôi', 'Đen Nhám', 'Hồng Pastel'],
+    name: 'The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)',
+    category: 'Công nghệ & DevOps',
+    price: 168000,
+    originalPrice: 220000,
+    rating: 4.9,
+    reviewsCount: 320,
+    image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+    tag: 'Khuyên đọc',
+    description: 'Tác phẩm kinh điển gối đầu giường của mọi kỹ sư DevOps và quản lý CNTT thế giới. Cuốn sách kể về hành trình cứu vãn dự án công nghệ bờ vực sụp đổ thông qua phương pháp DevOps, Agile và Lean IT.',
+    specs: ['Tác giả: Gene Kim, Kevin Behr, George Spafford', 'NXB: NXB Thế Giới', 'Năm XB: 2023', 'Số trang: 440 trang'],
+    colors: ['Bìa mềm tiêu chuẩn', 'Bìa cứng (Hardcover)', 'Bản đặc biệt kèm Bookmark'],
   },
   {
     id: 2,
-    name: 'Chuột không dây Silent Click công thái học',
-    category: 'Bàn phím & Chuột',
-    price: 145000,
-    originalPrice: 210000,
-    rating: 4.9,
-    reviewsCount: 520,
-    image: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=800&q=80',
-    tag: 'Yêu thích',
-    description: 'Chuột không dây thiết kế công thái học cầm vừa tay, switch bấm êm ái hoàn toàn không gây tiếng ồn (Silent Click), kết nối kép 2.4Ghz USB và Bluetooth.',
-    specs: ['Click chống ồn 99%', 'DPI 800-1200-1600', 'Pin sạc Type-C', 'Trọng lượng 75g'],
-    colors: ['Xám Bạc', 'Trắng Sữa', 'Đen Tuyền'],
+    name: 'The DevOps Handbook - Cẩm Nang Thực Hành DevOps Toàn Tập',
+    category: 'Công nghệ & DevOps',
+    price: 215000,
+    originalPrice: 285000,
+    rating: 5.0,
+    reviewsCount: 195,
+    image: 'https://images.unsplash.com/photo-1532012164546-f432f2e37272?auto=format&fit=crop&w=800&q=80',
+    tag: 'Bán chạy',
+    description: 'Cẩm nang toàn diện nhất hướng dẫn cách triển khai CI/CD, tự động hóa hạ tầng (IaC), văn hóa cộng tác Dev-Ops và đảm bảo độ tin cậy hệ thống trong kỷ nguyên điện toán đám mây.',
+    specs: ['Tác giả: Gene Kim, Jez Humble, Patrick Debois', 'NXB: NXB Dân Trí', 'Năm XB: 2024', 'Số trang: 520 trang'],
+    colors: ['Bìa mềm', 'Bìa cứng cao cấp'],
   },
   {
     id: 3,
-    name: 'Bàn phím cơ không dây Tenkeyless 87 phím Led Pastel',
-    category: 'Bàn phím & Chuột',
-    price: 489000,
-    originalPrice: 650000,
+    name: 'Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu',
+    category: 'Công nghệ & DevOps',
+    price: 195000,
+    originalPrice: 260000,
     rating: 4.9,
-    reviewsCount: 189,
-    image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&q=80',
-    tag: 'Hot Deal',
-    description: 'Bàn phím cơ layout 87 phím nhỏ gọn, switch gõ cực êm mượt đã được lube sẵn, đèn Led màu pastel tinh tế, hỗ trợ kết nối Bluetooth / 2.4Ghz / Dây Type-C.',
-    specs: ['Red Switch êm ái', 'Keycap PBT chống bóng', 'Hot-swap 3 pin', 'Pin 3000mAh'],
-    colors: ['Trắng Xám', 'Xanh Matcha', 'Đen Huyền Bí'],
+    reviewsCount: 450,
+    image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
+    tag: 'Kinh điển',
+    description: 'Cuốn sách bất hủ giúp mọi lập trình viên nâng tầm tư duy viết code: đặt tên có ý nghĩa, xây dựng hàm ngắn gọn, xử lý lỗi chuẩn mực và giữ kiến trúc mã nguồn luôn trong sáng dễ bảo trì.',
+    specs: ['Tác giả: Robert C. Martin (Uncle Bob)', 'NXB: NXB Thông Tin & Truyền Thông', 'Năm XB: 2023', 'Số trang: 464 trang'],
+    colors: ['Bìa mềm tiêu chuẩn', 'Bìa cứng giới hạn'],
   },
   {
     id: 4,
-    name: 'Củ sạc nhanh GaN 30W Type-C nhỏ gọn',
-    category: 'Củ cáp sạc',
-    price: 165000,
-    originalPrice: 250000,
-    rating: 4.8,
-    reviewsCount: 410,
-    image: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80',
-    tag: 'Khuyên dùng',
-    description: 'Củ sạc công nghệ GaN thế hệ mới kích thước siêu nhỏ, hỗ trợ sạc nhanh Power Delivery 30W cho iPhone, iPad, điện thoại Android và sạc phụ trợ MacBook Air.',
-    specs: ['Công suất chuẩn 30W', 'Chip GaN mát mẻ', 'Bảo vệ quá dòng / quá nhiệt', 'Chân cắm gập 90 độ'],
-    colors: ['Trắng', 'Đen'],
+    name: 'Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ',
+    category: 'Kỹ năng sống',
+    price: 149000,
+    originalPrice: 199000,
+    rating: 4.9,
+    reviewsCount: 880,
+    image: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80',
+    tag: 'Bán chạy',
+    description: 'Bí quyết thay đổi cuộc sống qua những thói quen nhỏ mỗi ngày. James Clear chỉ ra 4 quy luật đơn giản giúp bạn kiên trì xây dựng thói quen tốt và dễ dàng loại bỏ thói quen xấu.',
+    specs: ['Tác giả: James Clear', 'NXB: NXB Thế Giới', 'Năm XB: 2023', 'Số trang: 380 trang'],
+    colors: ['Bìa mềm ép kim', 'Bản bìa cứng có bookmark'],
   },
   {
     id: 5,
-    name: 'Cáp sạc nhanh bọc dù Type-C to Lightning / Type-C 60W',
-    category: 'Củ cáp sạc',
-    price: 59000,
-    originalPrice: 99000,
-    rating: 4.7,
-    reviewsCount: 890,
-    image: 'https://images.unsplash.com/photo-1595756630452-736bc8ef3693?auto=format&fit=crop&w=800&q=80',
-    tag: 'Giá tốt',
-    description: 'Cáp bọc sợi dù Kevlar siêu bền chống đứt gãy, chiều dài 1.2m, hỗ trợ truyền tải dữ liệu và sạc nhanh công suất lên tới 60W.',
-    specs: ['Bọc dù chống rối', 'Đầu nhôm gia cố', 'Công suất tối đa 60W', 'Bảo hành 12 tháng'],
-    colors: ['Xám Titan', 'Đen Đậm', 'Đỏ Nổi Bật'],
+    name: 'Đắc Nhân Tâm - Nghệ Thuật Thu Phục Lòng Người',
+    category: 'Kỹ năng sống',
+    price: 88000,
+    originalPrice: 120000,
+    rating: 4.8,
+    reviewsCount: 1250,
+    image: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80',
+    tag: 'Yêu thích',
+    description: 'Tác phẩm bất hủ về nghệ thuật đối nhân xử thế và giao tiếp chân thành, giúp bạn xây dựng mối quan hệ tốt đẹp với bạn bè, đồng nghiệp và đối tác trong cuộc sống.',
+    specs: ['Tác giả: Dale Carnegie', 'NXB: NXB Tổng Hợp TP.HCM', 'Năm XB: 2024', 'Số trang: 320 trang'],
+    colors: ['Bìa mềm', 'Bìa cứng mạ vàng'],
   },
   {
     id: 6,
-    name: 'Giá đỡ Laptop nhôm nguyên khối xoay 360 độ',
-    category: 'Giá đỡ & Phụ kiện bàn',
-    price: 225000,
-    originalPrice: 320000,
+    name: 'Nhà Đầu Tư Thông Minh (The Intelligent Investor)',
+    category: 'Kinh tế & Quản trị',
+    price: 235000,
+    originalPrice: 310000,
     rating: 4.9,
-    reviewsCount: 215,
-    image: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=800&q=80',
+    reviewsCount: 310,
+    image: 'https://images.unsplash.com/photo-1592496431122-2349e0fbc666?auto=format&fit=crop&w=800&q=80',
     tag: 'Hot Deal',
-    description: 'Giá đỡ nhôm cao cấp chịu tải 10kg, trục xoay 360 độ êm ái, tản nhiệt tối ưu cho MacBook và Laptop 11-17 inch.',
-    specs: ['Hợp kim nhôm nguyên khối', 'Khớp xoay 360 độ', 'Đệm silicon chống trượt', 'Gấp gọn mang đi'],
-    colors: ['Bạc Ánh Kim', 'Xám Không Gian'],
+    description: 'Kinh thánh về triết lý đầu tư giá trị của Benjamin Graham - người thầy vĩ đại của tỷ phú Warren Buffett. Cuốn sách định hình tư duy tài chính và quản trị rủi ro vững chắc.',
+    specs: ['Tác giả: Benjamin Graham', 'NXB: NXB Lao Động Xã Hội', 'Năm XB: 2023', 'Số trang: 640 trang'],
+    colors: ['Bìa mềm', 'Bìa cứng gáy may'],
   },
   {
     id: 7,
-    name: 'Đèn LED thanh treo màn hình chống mỏi mắt Smart Bar',
-    category: 'Giá đỡ & Phụ kiện bàn',
-    price: 310000,
-    originalPrice: 450000,
+    name: 'Khởi Nghiệp Tinh Gọn (The Lean Startup)',
+    category: 'Kinh tế & Quản trị',
+    price: 155000,
+    originalPrice: 210000,
     rating: 4.8,
-    reviewsCount: 168,
-    image: 'https://images.unsplash.com/photo-1593062096033-9a26b09da705?auto=format&fit=crop&w=800&q=80',
-    tag: 'Khuyên dùng',
-    description: 'Đèn kẹp màn hình chiếu sáng bàn làm việc không gây chói mắt, tùy chỉnh 3 nhiệt độ màu (3000K-6500K) và độ sáng cảm ứng.',
-    specs: ['Chiếu sáng bất đối xứng', 'Cảm ứng chạm', 'Nguồn USB 5V', '3 chế độ ánh sáng'],
-    colors: ['Đen Nhám'],
+    reviewsCount: 260,
+    image: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80',
+    tag: 'Khuyên đọc',
+    description: 'Mô hình phát triển sản phẩm đột phá với vòng lặp Build - Measure - Learn giúp startup và doanh nghiệp công nghệ kiểm chứng giả định nhanh chóng với chi phí tối thiểu.',
+    specs: ['Tác giả: Eric Ries', 'NXB: NXB Công Thương', 'Năm XB: 2023', 'Số trang: 370 trang'],
+    colors: ['Bìa mềm', 'Bản bìa cứng'],
   },
   {
     id: 8,
-    name: 'Loa Bluetooth Mini chống nước IPX7 Bass Boost',
-    category: 'Tai nghe & Loa',
-    price: 259000,
-    originalPrice: 380000,
-    rating: 4.7,
-    reviewsCount: 310,
-    image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80',
+    name: 'Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm',
+    category: 'Văn học & Nghệ thuật',
+    price: 79000,
+    originalPrice: 105000,
+    rating: 4.9,
+    reviewsCount: 950,
+    image: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80',
     tag: 'Bán chạy',
-    description: 'Loa Bluetooth cầm tay công suất 10W, màng loa thụ động cho âm bass mạnh mẽ, chống nước ngâm IPX7 đi mưa thoải mái.',
-    specs: ['Công suất 10W', 'Chống nước IPX7', 'Pin 12 tiếng liên tục', 'Hỗ trợ thẻ nhớ & AUX'],
-    colors: ['Xanh Rêu', 'Đen', 'Đỏ Rực Rỡ'],
+    description: 'Hành trình vượt sa mạc đi tìm kho báu của chàng chăn cừu Santiago gửi gắm bức thông điệp sâu sắc: Khi bạn thực sự quyết tâm, cả vũ trụ sẽ hợp lực giúp bạn đạt được ước mơ.',
+    specs: ['Tác giả: Paulo Coelho', 'NXB: NXB Hội Nhà Văn', 'Năm XB: 2024', 'Số trang: 228 trang'],
+    colors: ['Bìa mềm kinh điển', 'Bìa cứng minh họa'],
   },
   {
     id: 9,
-    name: 'Hub Type-C 7 trong 1 đa năng cho Laptop / iPad',
-    category: 'Củ cáp sạc',
-    price: 345000,
-    originalPrice: 490000,
-    rating: 4.9,
-    reviewsCount: 440,
-    image: 'https://images.unsplash.com/photo-1625842268584-8f3296236761?auto=format&fit=crop&w=800&q=80',
+    name: 'Cây Cam Ngọt Của Tôi - Ấn Bản Đặc Biệt',
+    category: 'Văn học & Nghệ thuật',
+    price: 92000,
+    originalPrice: 125000,
+    rating: 5.0,
+    reviewsCount: 780,
+    image: 'https://images.unsplash.com/photo-1476275466078-4007374efbbe?auto=format&fit=crop&w=800&q=80',
     tag: 'Yêu thích',
-    description: 'Bộ chia cổng kết nối gồm HDMI 4K@30Hz, 3 cổng USB 3.0, khe thẻ nhớ SD/TF và cổng sạc nhanh Type-C PD 100W.',
-    specs: ['HDMI 4K sắc nét', 'Sạc nhanh PD 100W', 'USB 3.0 tốc độ 5Gbps', 'Vỏ nhôm tản nhiệt'],
-    colors: ['Xám Titan'],
+    description: 'Một trong những cuốn sách văn học Brazil xúc động nhất về tâm hồn trong trẻo, giàu lòng trắc ẩn của cậu bé năm tuổi Zezé và tình bạn ấm áp diệu kỳ.',
+    specs: ['Tác giả: José Mauro de Vasconcelos', 'NXB: NXB Hội Nhà Văn', 'Năm XB: 2023', 'Số trang: 244 trang'],
+    colors: ['Bìa mềm minh họa', 'Bản bìa cứng kỷ niệm'],
   },
   {
     id: 10,
-    name: 'Thảm da lót bàn làm việc Deskpad 2 mặt chống nước 80x40cm',
-    category: 'Giá đỡ & Phụ kiện bàn',
-    price: 89000,
-    originalPrice: 150000,
+    name: 'Deep Work - Làm Ra Làm, Chơi Ra Chơi',
+    category: 'Kỹ năng sống',
+    price: 135000,
+    originalPrice: 180000,
     rating: 4.8,
-    reviewsCount: 620,
-    image: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?auto=format&fit=crop&w=800&q=80',
-    tag: 'Giá tốt',
-    description: 'Lót chuột cỡ lớn chất liệu da PU cao cấp mềm mịn, chống nước chống bám bẩn dễ lau chùi, sử dụng được cả 2 mặt 2 màu khác nhau.',
-    specs: ['Kích thước 80x40cm', 'Da PU cao cấp 2 mặt', 'Chống thấm nước tuyệt đối', 'Tặng kèm dây cuộn da'],
-    colors: ['Đen - Đỏ', 'Xanh Navy - Vàng Bò', 'Hồng - Xám'],
+    reviewsCount: 340,
+    image: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=800&q=80',
+    tag: 'Ưu đãi SV',
+    description: 'Chiến lược rèn luyện khả năng tập trung cao độ trong thời đại bùng nổ thông tin và mạng xã hội. Phương pháp làm việc sâu giúp nâng cao chất lượng đầu ra vượt bậc.',
+    specs: ['Tác giả: Cal Newport', 'NXB: NXB Thế Giới', 'Năm XB: 2023', 'Số trang: 350 trang'],
+    colors: ['Bìa mềm', 'Bìa cứng'],
   },
 ];
 
 const INITIAL_ORDERS = [
   {
     id: 'DH-1001',
-    userId: 'USR-002',
-    customerName: 'Nguyễn Văn An',
-    customerEmail: 'nguyenvanan@gmail.com',
+    userId: 'USR-006',
+    customerName: 'Nguyễn Hoàng Nam',
+    customerEmail: 'hoangnam@gmail.com',
     customerPhone: '0912 345 678',
     customerAddress: '123 Cầu Giấy, Hà Nội',
-    totalAmount: 248000,
+    totalAmount: 317000,
     status: 'pending',
     note: 'Giao giờ hành chính, gọi trước khi đến',
     createdAt: '07/09/2026 14:30',
     items: [
       {
         id: 1,
-        name: 'Tai nghe Bluetooth True Wireless Mini V5.3',
-        price: 189000,
+        name: 'The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)',
+        price: 168000,
         quantity: 1,
-        selectedColor: 'Trắng Tinh Khôi',
-        image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80',
+        selectedColor: 'Bìa mềm tiêu chuẩn',
+        image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
       },
       {
-        id: 5,
-        name: 'Cáp sạc nhanh bọc dù Type-C to Lightning / Type-C 60W',
-        price: 59000,
+        id: 4,
+        name: 'Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ',
+        price: 149000,
         quantity: 1,
-        selectedColor: 'Xám Titan',
-        image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80',
+        selectedColor: 'Bìa mềm ép kim',
+        image: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80',
       },
     ],
   },
   {
     id: 'DH-1002',
-    userId: 'USR-003',
-    customerName: 'Trần Thị Bích',
-    customerEmail: 'bich.tran@gmail.com',
+    userId: 'USR-007',
+    customerName: 'Trần Thảo My',
+    customerEmail: 'thaomy.tran@gmail.com',
     customerPhone: '0988 765 432',
     customerAddress: '45 Lê Lợi, Quận 1, TP. Hồ Chí Minh',
-    totalAmount: 489000,
+    totalAmount: 195000,
     status: 'shipping',
     note: 'Giao buổi chiều sau 17h',
     createdAt: '06/09/2026 09:15',
     items: [
       {
         id: 3,
-        name: 'Bàn phím cơ không dây Tenkeyless 87 phím Led Pastel',
-        price: 489000,
+        name: 'Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu',
+        price: 195000,
         quantity: 1,
-        selectedColor: 'Trắng Xám',
-        image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80',
+        selectedColor: 'Bìa mềm tiêu chuẩn',
+        image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80',
       },
     ],
   },
   {
     id: 'DH-1003',
-    userId: 'USR-004',
-    customerName: 'Lê Hoàng Long',
-    customerEmail: 'long.le@gmail.com',
-    customerPhone: '0903 112 233',
-    customerAddress: '78 Nguyễn Huệ, Đà Nẵng',
-    totalAmount: 310000,
+    userId: 'USR-006',
+    customerName: 'Nguyễn Hoàng Nam',
+    customerEmail: 'hoangnam@gmail.com',
+    customerPhone: '0912 345 678',
+    customerAddress: '123 Cầu Giấy, Hà Nội',
+    totalAmount: 79000,
     status: 'delivered',
     note: 'Để ở quầy lễ tân giúp mình',
     createdAt: '05/09/2026 10:00',
     items: [
       {
-        id: 7,
-        name: 'Đèn LED thanh treo màn hình chống mỏi mắt Smart Bar',
-        price: 310000,
+        id: 8,
+        name: 'Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm',
+        price: 79000,
         quantity: 1,
-        selectedColor: 'Đen Nhám',
-        image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&q=80',
+        selectedColor: 'Bìa mềm kinh điển',
+        image: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=400&q=80',
       },
     ],
   },
@@ -405,32 +405,32 @@ export async function connectDB() {
     await mongoose.connect(MONGO_URI, {
       serverSelectionTimeoutMS: 5000,
     });
-    console.log(`🍃 Đã kết nối thành công đến MongoDB tại: ${MONGO_URI}`);
+    console.log(`📚 Đã kết nối thành công đến MongoDB BookStore tại: ${MONGO_URI}`);
 
     // Tự động seed người dùng nếu trống
     const userCount = await User.countDocuments();
     if (userCount === 0) {
       await User.insertMany(INITIAL_USERS);
-      console.log('✅ Đã khởi tạo dữ liệu mẫu: Người dùng (Users)');
+      console.log('✅ Đã khởi tạo dữ liệu mẫu: Người dùng BookStore (Users)');
     }
 
-    // Tự động seed sản phẩm nếu trống
+    // Tự động seed sách nếu trống
     const prodCount = await Product.countDocuments();
     if (prodCount === 0) {
       await Product.insertMany(INITIAL_PRODUCTS);
-      console.log('✅ Đã khởi tạo dữ liệu mẫu: Sản phẩm (Products)');
+      console.log('✅ Đã khởi tạo dữ liệu mẫu: Danh mục sách BookStore (Products)');
     }
 
     // Tự động seed đơn hàng nếu trống
     const orderCount = await Order.countDocuments();
     if (orderCount === 0) {
       await Order.insertMany(INITIAL_ORDERS);
-      console.log('✅ Đã khởi tạo dữ liệu mẫu: Đơn hàng (Orders)');
+      console.log('✅ Đã khởi tạo dữ liệu mẫu: Đơn đặt sách BookStore (Orders)');
     }
 
     return mongoose.connection;
   } catch (err) {
-    console.error('❌ Lỗi kết nối đến MongoDB:', err.message);
+    console.error('❌ Lỗi kết nối đến MongoDB BookStore:', err.message);
     throw err;
   }
 }

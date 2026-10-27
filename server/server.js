@@ -16,11 +16,11 @@ connectDB().catch((err) => {
   console.error('Không thể kết nối ban đầu tới MongoDB:', err.message);
 });
 
-// 1. Kiểm tra trạng thái Server & Database
+// 1. Kiểm tra trạng thái Server & Database BookStore
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
-    message: 'Server và MongoDB kết nối bình thường!',
+    message: 'Server BookStore và MongoDB kết nối bình thường!',
     db: 'Connected',
   });
 });
@@ -62,14 +62,14 @@ app.post('/api/products', async (req, res) => {
     const newProduct = await Product.create({
       id: Number(prodId),
       name,
-      category: category || 'Phụ kiện',
+      category: category || 'Sách tổng hợp',
       price: Number(price),
       originalPrice: Number(originalPrice || price),
       rating: Number(rating) || 5.0,
       reviewsCount: Number(reviewsCount) || 0,
       image:
         image ||
-        'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
       tag: tag || null,
       description: description || name,
       specs: Array.isArray(specs) ? specs : [],
@@ -78,7 +78,7 @@ app.post('/api/products', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Thêm sản phẩm vào MongoDB thành công!',
+      message: 'Thêm sách vào MongoDB thành công!',
       data: newProduct,
     });
   } catch (err) {
@@ -124,7 +124,7 @@ app.put('/api/products/:id', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Cập nhật sản phẩm thành công!',
+      message: 'Cập nhật thông tin sách thành công!',
       data: updated,
     });
   } catch (err) {
@@ -137,7 +137,7 @@ app.delete('/api/products/:id', async (req, res) => {
   const id = Number(req.params.id);
   try {
     await Product.findOneAndDelete({ id });
-    res.json({ success: true, message: 'Đã xóa sản phẩm khỏi Database!' });
+    res.json({ success: true, message: 'Đã xóa cuốn sách khỏi Database!' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -383,5 +383,5 @@ app.delete('/api/orders/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server backend đang chạy tại http://localhost:${PORT}`);
+  console.log(`🚀 Server backend BookStore đang chạy tại http://localhost:${PORT}`);
 });

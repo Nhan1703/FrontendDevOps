@@ -41,6 +41,9 @@ import {
   UserCheck,
   UserX,
   FileText,
+  BookOpen,
+  BookMarked,
+  Library,
 } from "lucide-react";
 
 export interface Product {
@@ -73,11 +76,11 @@ export interface UserProfile {
 }
 
 const DEFAULT_CATEGORIES = [
-  "Tai nghe & Loa",
-  "Bàn phím & Chuột",
-  "Củ cáp sạc",
-  "Phụ kiện setup",
-  "Điện thoại & Giá đỡ",
+  "Công nghệ & DevOps",
+  "Kỹ năng sống",
+  "Kinh tế & Quản trị",
+  "Văn học & Nghệ thuật",
+  "Ngoại ngữ & Từ điển",
 ];
 
 const PRESET_TAGS = [
@@ -85,8 +88,9 @@ const PRESET_TAGS = [
   { value: "Mới", label: "Mới" },
   { value: "Hot Deal", label: "Hot Deal" },
   { value: "Bán chạy", label: "Bán chạy" },
+  { value: "Khuyên đọc", label: "Khuyên đọc" },
+  { value: "Kinh điển", label: "Kinh điển" },
   { value: "Yêu thích", label: "Yêu thích" },
-  { value: "Decor đẹp", label: "Decor đẹp" },
   { value: "Ưu đãi SV", label: "Ưu đãi SV" },
   { value: "Giảm sốc", label: "Giảm sốc" },
 ];
@@ -99,44 +103,44 @@ interface SampleImagePreset {
 
 const SAMPLE_IMAGE_PRESETS: SampleImagePreset[] = [
   {
-    name: "Điện thoại",
-    url: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Điện thoại & Giá đỡ",
+    name: "Sách Công nghệ",
+    url: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Công nghệ & DevOps",
   },
   {
-    name: "Tai nghe",
-    url: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Tai nghe & Loa",
+    name: "Cẩm nang DevOps",
+    url: "https://images.unsplash.com/photo-1532012164546-f432f2e37272?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Công nghệ & DevOps",
   },
   {
-    name: "Bàn phím",
-    url: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Bàn phím & Chuột",
+    name: "Lập trình Clean Code",
+    url: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Công nghệ & DevOps",
   },
   {
-    name: "Chuột",
-    url: "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Bàn phím & Chuột",
+    name: "Sách Kỹ năng sống",
+    url: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Kỹ năng sống",
   },
   {
-    name: "Cáp sạc",
-    url: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Củ cáp sạc",
+    name: "Sách Đắc Nhân Tâm",
+    url: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Kỹ năng sống",
   },
   {
-    name: "Loa Bluetooth",
-    url: "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Tai nghe & Loa",
+    name: "Sách Kinh tế - Đầu tư",
+    url: "https://images.unsplash.com/photo-1592496431122-2349e0fbc666?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Kinh tế & Quản trị",
   },
   {
-    name: "Giá đỡ laptop",
-    url: "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Phụ kiện setup",
+    name: "Khởi Nghiệp Lean",
+    url: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Kinh tế & Quản trị",
   },
   {
-    name: "Lót bàn setup",
-    url: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80",
-    categorySuggestion: "Phụ kiện setup",
+    name: "Tiểu thuyết Văn học",
+    url: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+    categorySuggestion: "Văn học & Nghệ thuật",
   },
 ];
 
@@ -177,6 +181,306 @@ export interface AppUser {
   ordersCount: number;
 }
 
+const DEFAULT_BOOKS: Product[] = [
+  {
+    id: 1,
+    name: "The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)",
+    category: "Công nghệ & DevOps",
+    price: 168000,
+    originalPrice: 220000,
+    rating: 4.9,
+    reviewsCount: 320,
+    image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
+    tag: "Khuyên đọc",
+    description: "Tác phẩm kinh điển gối đầu giường của mọi kỹ sư DevOps và quản lý CNTT thế giới. Cuốn sách kể về hành trình cứu vãn dự án công nghệ bờ vực sụp đổ thông qua phương pháp DevOps, Agile và Lean IT.",
+    specs: ["Tác giả: Gene Kim, Kevin Behr, George Spafford", "NXB: NXB Thế Giới", "Năm XB: 2023", "Số trang: 440 trang"],
+    colors: ["Bìa mềm tiêu chuẩn", "Bìa cứng (Hardcover)", "Bản đặc biệt kèm Bookmark"],
+  },
+  {
+    id: 2,
+    name: "The DevOps Handbook - Cẩm Nang Thực Hành DevOps Toàn Tập",
+    category: "Công nghệ & DevOps",
+    price: 215000,
+    originalPrice: 285000,
+    rating: 5.0,
+    reviewsCount: 195,
+    image: "https://images.unsplash.com/photo-1532012164546-f432f2e37272?auto=format&fit=crop&w=800&q=80",
+    tag: "Bán chạy",
+    description: "Cẩm nang toàn diện nhất hướng dẫn cách triển khai CI/CD, tự động hóa hạ tầng (IaC), văn hóa cộng tác Dev-Ops và đảm bảo độ tin cậy hệ thống trong kỷ nguyên điện toán đám mây.",
+    specs: ["Tác giả: Gene Kim, Jez Humble, Patrick Debois", "NXB: NXB Dân Trí", "Năm XB: 2024", "Số trang: 520 trang"],
+    colors: ["Bìa mềm", "Bìa cứng cao cấp"],
+  },
+  {
+    id: 3,
+    name: "Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu",
+    category: "Công nghệ & DevOps",
+    price: 195000,
+    originalPrice: 260000,
+    rating: 4.9,
+    reviewsCount: 450,
+    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80",
+    tag: "Kinh điển",
+    description: "Cuốn sách bất hủ giúp mọi lập trình viên nâng tầm tư duy viết code: đặt tên có ý nghĩa, xây dựng hàm ngắn gọn, xử lý lỗi chuẩn mực và giữ kiến trúc mã nguồn luôn trong sáng dễ bảo trì.",
+    specs: ["Tác giả: Robert C. Martin (Uncle Bob)", "NXB: NXB Thông Tin & Truyền Thông", "Năm XB: 2023", "Số trang: 464 trang"],
+    colors: ["Bìa mềm tiêu chuẩn", "Bìa cứng giới hạn"],
+  },
+  {
+    id: 4,
+    name: "Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ",
+    category: "Kỹ năng sống",
+    price: 149000,
+    originalPrice: 199000,
+    rating: 4.9,
+    reviewsCount: 880,
+    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80",
+    tag: "Bán chạy",
+    description: "Bí quyết thay đổi cuộc sống qua những thói quen nhỏ mỗi ngày. James Clear chỉ ra 4 quy luật đơn giản giúp bạn kiên trì xây dựng thói quen tốt và dễ dàng loại bỏ thói quen xấu.",
+    specs: ["Tác giả: James Clear", "NXB: NXB Thế Giới", "Năm XB: 2023", "Số trang: 380 trang"],
+    colors: ["Bìa mềm ép kim", "Bản bìa cứng có bookmark"],
+  },
+  {
+    id: 5,
+    name: "Đắc Nhân Tâm - Nghệ Thuật Thu Phục Lòng Người",
+    category: "Kỹ năng sống",
+    price: 88000,
+    originalPrice: 120000,
+    rating: 4.8,
+    reviewsCount: 1250,
+    image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80",
+    tag: "Yêu thích",
+    description: "Tác phẩm bất hủ về nghệ thuật đối nhân xử thế và giao tiếp chân thành, giúp bạn xây dựng mối quan hệ tốt đẹp với bạn bè, đồng nghiệp và đối tác trong cuộc sống.",
+    specs: ["Tác giả: Dale Carnegie", "NXB: NXB Tổng Hợp TP.HCM", "Năm XB: 2024", "Số trang: 320 trang"],
+    colors: ["Bìa mềm", "Bìa cứng mạ vàng"],
+  },
+  {
+    id: 6,
+    name: "Nhà Đầu Tư Thông Minh (The Intelligent Investor)",
+    category: "Kinh tế & Quản trị",
+    price: 235000,
+    originalPrice: 310000,
+    rating: 4.9,
+    reviewsCount: 310,
+    image: "https://images.unsplash.com/photo-1592496431122-2349e0fbc666?auto=format&fit=crop&w=800&q=80",
+    tag: "Hot Deal",
+    description: "Kinh thánh về triết lý đầu tư giá trị của Benjamin Graham - người thầy vĩ đại của tỷ phú Warren Buffett. Cuốn sách định hình tư duy tài chính và quản trị rủi ro vững chắc.",
+    specs: ["Tác giả: Benjamin Graham", "NXB: NXB Lao Động Xã Hội", "Năm XB: 2023", "Số trang: 640 trang"],
+    colors: ["Bìa mềm", "Bìa cứng gáy may"],
+  },
+  {
+    id: 7,
+    name: "Khởi Nghiệp Tinh Gọn (The Lean Startup)",
+    category: "Kinh tế & Quản trị",
+    price: 155000,
+    originalPrice: 210000,
+    rating: 4.8,
+    reviewsCount: 260,
+    image: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80",
+    tag: "Khuyên đọc",
+    description: "Mô hình phát triển sản phẩm đột phá với vòng lặp Build - Measure - Learn giúp startup và doanh nghiệp công nghệ kiểm chứng giả định nhanh chóng với chi phí tối thiểu.",
+    specs: ["Tác giả: Eric Ries", "NXB: NXB Công Thương", "Năm XB: 2023", "Số trang: 370 trang"],
+    colors: ["Bìa mềm", "Bản bìa cứng"],
+  },
+  {
+    id: 8,
+    name: "Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm",
+    category: "Văn học & Nghệ thuật",
+    price: 79000,
+    originalPrice: 105000,
+    rating: 4.9,
+    reviewsCount: 950,
+    image: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80",
+    tag: "Bán chạy",
+    description: "Hành trình vượt sa mạc đi tìm kho báu của chàng chăn cừu Santiago gửi gắm bức thông điệp sâu sắc: Khi bạn thực sự quyết tâm, cả vũ trụ sẽ hợp lực giúp bạn đạt được ước mơ.",
+    specs: ["Tác giả: Paulo Coelho", "NXB: NXB Hội Nhà Văn", "Năm XB: 2024", "Số trang: 228 trang"],
+    colors: ["Bìa mềm kinh điển", "Bìa cứng minh họa"],
+  },
+  {
+    id: 9,
+    name: "Cây Cam Ngọt Của Tôi - Ấn Bản Đặc Biệt",
+    category: "Văn học & Nghệ thuật",
+    price: 92000,
+    originalPrice: 125000,
+    rating: 5.0,
+    reviewsCount: 780,
+    image: "https://images.unsplash.com/photo-1476275466078-4007374efbbe?auto=format&fit=crop&w=800&q=80",
+    tag: "Yêu thích",
+    description: "Một trong những cuốn sách văn học Brazil xúc động nhất về tâm hồn trong trẻo, giàu lòng trắc ẩn của cậu bé năm tuổi Zezé và tình bạn ấm áp diệu kỳ.",
+    specs: ["Tác giả: José Mauro de Vasconcelos", "NXB: NXB Hội Nhà Văn", "Năm XB: 2023", "Số trang: 244 trang"],
+    colors: ["Bìa mềm minh họa", "Bản bìa cứng kỷ niệm"],
+  },
+  {
+    id: 10,
+    name: "Deep Work - Làm Ra Làm, Chơi Ra Chơi",
+    category: "Kỹ năng sống",
+    price: 135000,
+    originalPrice: 180000,
+    rating: 4.8,
+    reviewsCount: 340,
+    image: "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=800&q=80",
+    tag: "Ưu đãi SV",
+    description: "Chiến lược rèn luyện khả năng tập trung cao độ trong thời đại bùng nổ thông tin và mạng xã hội. Phương pháp làm việc sâu giúp nâng cao chất lượng đầu ra vượt bậc.",
+    specs: ["Tác giả: Cal Newport", "NXB: NXB Thế Giới", "Năm XB: 2023", "Số trang: 350 trang"],
+    colors: ["Bìa mềm", "Bìa cứng"],
+  },
+];
+
+const DEFAULT_APP_USERS: AppUser[] = [
+  {
+    id: "USR-001",
+    name: "Quản trị viên (Admin)",
+    email: "admin",
+    password: "admin123",
+    phone: "0900 000 001",
+    role: "admin",
+    status: "active",
+    createdAt: "01/01/2026",
+    ordersCount: 0,
+  },
+  {
+    id: "USR-002",
+    name: "Đinh Ngọc Thế Nhân (Nhóm 1)",
+    email: "thenhan",
+    password: "admin123",
+    phone: "0917 714 595",
+    role: "admin",
+    status: "active",
+    createdAt: "08/09/2026",
+    ordersCount: 0,
+  },
+  {
+    id: "USR-003",
+    name: "Hoàng Trường Ân (Nhóm 1)",
+    email: "truongan",
+    password: "admin123",
+    phone: "0901 112 233",
+    role: "admin",
+    status: "active",
+    createdAt: "08/09/2026",
+    ordersCount: 0,
+  },
+  {
+    id: "USR-004",
+    name: "Cao Đình Bảo (Nhóm 1)",
+    email: "dinhbao",
+    password: "admin123",
+    phone: "0902 223 344",
+    role: "admin",
+    status: "active",
+    createdAt: "08/09/2026",
+    ordersCount: 0,
+  },
+  {
+    id: "USR-005",
+    name: "Huỳnh Phước Quân (Nhóm 1)",
+    email: "phuocquan",
+    password: "admin123",
+    phone: "0903 334 455",
+    role: "admin",
+    status: "active",
+    createdAt: "08/09/2026",
+    ordersCount: 0,
+  },
+  {
+    id: "USR-006",
+    name: "Nguyễn Hoàng Nam",
+    email: "hoangnam@gmail.com",
+    password: "kh123",
+    phone: "0912 345 678",
+    role: "customer",
+    status: "active",
+    createdAt: "15/05/2026",
+    ordersCount: 2,
+  },
+  {
+    id: "USR-007",
+    name: "Trần Thảo My",
+    email: "thaomy.tran@gmail.com",
+    password: "kh123",
+    phone: "0988 765 432",
+    role: "customer",
+    status: "active",
+    createdAt: "22/07/2026",
+    ordersCount: 1,
+  },
+];
+
+const DEFAULT_BOOK_ORDERS: Order[] = [
+  {
+    id: "DH-1001",
+    userId: "USR-006",
+    customerName: "Nguyễn Hoàng Nam",
+    customerEmail: "hoangnam@gmail.com",
+    customerPhone: "0912 345 678",
+    customerAddress: "123 Cầu Giấy, Hà Nội",
+    totalAmount: 317000,
+    status: "pending",
+    note: "Giao giờ hành chính, gọi trước khi đến",
+    createdAt: "07/09/2026 14:30",
+    items: [
+      {
+        id: 1,
+        name: "The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)",
+        price: 168000,
+        quantity: 1,
+        selectedColor: "Bìa mềm tiêu chuẩn",
+        image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80",
+      },
+      {
+        id: 4,
+        name: "Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ",
+        price: 149000,
+        quantity: 1,
+        selectedColor: "Bìa mềm ép kim",
+        image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80",
+      },
+    ],
+  },
+  {
+    id: "DH-1002",
+    userId: "USR-007",
+    customerName: "Trần Thảo My",
+    customerEmail: "thaomy.tran@gmail.com",
+    customerPhone: "0988 765 432",
+    customerAddress: "45 Lê Lợi, Quận 1, TP. Hồ Chí Minh",
+    totalAmount: 195000,
+    status: "shipping",
+    note: "Giao buổi chiều sau 17h",
+    createdAt: "06/09/2026 09:15",
+    items: [
+      {
+        id: 3,
+        name: "Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu",
+        price: 195000,
+        quantity: 1,
+        selectedColor: "Bìa mềm tiêu chuẩn",
+        image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80",
+      },
+    ],
+  },
+  {
+    id: "DH-1003",
+    userId: "USR-006",
+    customerName: "Nguyễn Hoàng Nam",
+    customerEmail: "hoangnam@gmail.com",
+    customerPhone: "0912 345 678",
+    customerAddress: "123 Cầu Giấy, Hà Nội",
+    totalAmount: 79000,
+    status: "delivered",
+    note: "Để ở quầy lễ tân giúp mình",
+    createdAt: "05/09/2026 10:00",
+    items: [
+      {
+        id: 8,
+        name: "Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm",
+        price: 79000,
+        quantity: 1,
+        selectedColor: "Bìa mềm kinh điển",
+        image: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=400&q=80",
+      },
+    ],
+  },
+];
+
 
 
 export default function App() {
@@ -216,20 +520,23 @@ export default function App() {
 
   // Products Data with LocalStorage Persistence
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem("thenhanshop_products");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Error loading products from localStorage", e);
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("bookstore_products");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {
+          console.error("Error loading products from localStorage", e);
+        }
       }
     }
-    return [];
+    return DEFAULT_BOOKS;
   });
 
   // Save to localStorage on change
   useEffect(() => {
-    localStorage.setItem("thenhanshop_products", JSON.stringify(products));
+    localStorage.setItem("bookstore_products", JSON.stringify(products));
   }, [products]);
 
   // Categories list
@@ -264,20 +571,21 @@ export default function App() {
   // Orders State & LocalStorage Persistence
   const [orders, setOrders] = useState<Order[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("thenhanshop_orders");
+      const saved = localStorage.getItem("bookstore_orders");
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         } catch (e) {
           console.error("Error loading orders from localStorage", e);
         }
       }
     }
-    return [];
+    return DEFAULT_BOOK_ORDERS;
   });
 
   useEffect(() => {
-    localStorage.setItem("thenhanshop_orders", JSON.stringify(orders));
+    localStorage.setItem("bookstore_orders", JSON.stringify(orders));
   }, [orders]);
 
   // Order Management States
@@ -285,30 +593,43 @@ export default function App() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // Helper kiểm tra tài khoản Quản trị viên gốc đầu tiên (admin)
+  // Helper kiểm tra tài khoản Quản trị viên nhóm 1 & admin
   const isRootAdmin = (u?: AppUser | null) => {
     if (!u) return false;
-    return u.email.toLowerCase() === "admin" || (u.id === "USR-001" && (u.name || "").toLowerCase().includes("admin"));
+    const email = u.email.toLowerCase();
+    const name = (u.name || "").toLowerCase();
+    return (
+      email === "admin" ||
+      email === "thenhan" ||
+      email === "truongan" ||
+      email === "dinhbao" ||
+      email === "phuocquan" ||
+      name.includes("thế nhân") ||
+      name.includes("trường ân") ||
+      name.includes("đình bảo") ||
+      name.includes("phước quân") ||
+      (u.id === "USR-001" && name.includes("admin"))
+    );
   };
 
   // App Users State & LocalStorage Persistence
   const [appUsers, setAppUsers] = useState<AppUser[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("thenhanshop_users");
+      const saved = localStorage.getItem("bookstore_users");
       if (saved) {
         try {
           const parsed: AppUser[] = JSON.parse(saved);
-          return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
         } catch (e) {
           console.error("Error loading users from localStorage", e);
         }
       }
     }
-    return [];
+    return DEFAULT_APP_USERS;
   });
 
   useEffect(() => {
-    localStorage.setItem("thenhanshop_users", JSON.stringify(appUsers));
+    localStorage.setItem("bookstore_users", JSON.stringify(appUsers));
   }, [appUsers]);
 
   // Đồng bộ dữ liệu từ SQL Server qua Backend API khi mở ứng dụng
@@ -393,14 +714,14 @@ export default function App() {
   // ================= ADMIN SESSION (ĐỘC LẬP VỚI SHOP) =================
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("thenhanshop_admin_logged_in") === "true";
+      return localStorage.getItem("bookstore_admin_logged_in") === "true";
     }
     return false;
   });
 
   const [currentAdminAccount, setCurrentAdminAccount] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("thenhanshop_current_admin") || "admin";
+      return localStorage.getItem("bookstore_current_admin") || "admin";
     }
     return "admin";
   });
@@ -443,8 +764,8 @@ export default function App() {
     if (cleanPassword === expectedPass) {
       setIsAdminLoggedIn(true);
       setCurrentAdminAccount(matchedAdmin.name || matchedAdmin.email);
-      localStorage.setItem("thenhanshop_admin_logged_in", "true");
-      localStorage.setItem("thenhanshop_current_admin", matchedAdmin.name || matchedAdmin.email);
+      localStorage.setItem("bookstore_admin_logged_in", "true");
+      localStorage.setItem("bookstore_current_admin", matchedAdmin.name || matchedAdmin.email);
       showToast(`Đăng nhập Admin (${matchedAdmin.name}) thành công!`);
     } else {
       showToast(`Mật khẩu Quản trị viên không đúng! (Mật khẩu: ${expectedPass})`);
@@ -453,8 +774,8 @@ export default function App() {
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
-    localStorage.removeItem("thenhanshop_admin_logged_in");
-    localStorage.removeItem("thenhanshop_current_admin");
+    localStorage.removeItem("bookstore_admin_logged_in");
+    localStorage.removeItem("bookstore_current_admin");
     setCurrentAdminAccount("admin");
     navigateView("store"); // Tự động quay về trang mua sắm ngay lập tức
     showToast("Đã đăng xuất tài khoản Quản trị viên và quay về Cửa hàng.");
@@ -463,7 +784,7 @@ export default function App() {
   // ================= CUSTOMER SESSION (DÀNH RIÊNG CHO SHOP) =================
   const [customerUser, setCustomerUser] = useState<UserProfile | null>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("thenhanshop_customer");
+      const saved = localStorage.getItem("bookstore_customer");
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -529,8 +850,8 @@ export default function App() {
         if (cleanPassword === expectedAdminPass) {
           setIsAdminLoggedIn(true);
           setCurrentAdminAccount(adminToAuth?.name || adminToAuth?.email || "admin");
-          localStorage.setItem("thenhanshop_admin_logged_in", "true");
-          localStorage.setItem("thenhanshop_current_admin", adminToAuth?.name || adminToAuth?.email || "admin");
+          localStorage.setItem("bookstore_admin_logged_in", "true");
+          localStorage.setItem("bookstore_current_admin", adminToAuth?.name || adminToAuth?.email || "admin");
           setIsAuthModalOpen(false);
           setAuthEmail("");
           setAuthPassword("");
@@ -567,7 +888,7 @@ export default function App() {
 
       // Đăng nhập khách hàng: Đảm bảo xóa bỏ hoàn toàn quyền/phiên Admin
       setIsAdminLoggedIn(false);
-      localStorage.removeItem("thenhanshop_admin_logged_in");
+      localStorage.removeItem("bookstore_admin_logged_in");
 
       if (matchedUser) {
         if (matchedUser.status === "locked") {
@@ -583,7 +904,7 @@ export default function App() {
           role: "user",
         };
         setCustomerUser(customer);
-        localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
+        localStorage.setItem("bookstore_customer", JSON.stringify(customer));
         setIsAuthModalOpen(false);
         setAuthEmail("");
         setAuthPassword("");
@@ -601,7 +922,7 @@ export default function App() {
           role: "user",
         };
         setCustomerUser(customer);
-        localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
+        localStorage.setItem("bookstore_customer", JSON.stringify(customer));
 
         setAppUsers((prev) => {
           if (prev.some((u) => u.email.toLowerCase() === customer.email.toLowerCase())) {
@@ -695,7 +1016,7 @@ export default function App() {
 
           // Xóa bỏ session Admin khi tạo tài khoản khách hàng
           setIsAdminLoggedIn(false);
-          localStorage.removeItem("thenhanshop_admin_logged_in");
+          localStorage.removeItem("bookstore_admin_logged_in");
 
           const customer: UserProfile = {
             name: cleanName,
@@ -703,7 +1024,7 @@ export default function App() {
             role: "user",
           };
           setCustomerUser(customer);
-          localStorage.setItem("thenhanshop_customer", JSON.stringify(customer));
+          localStorage.setItem("bookstore_customer", JSON.stringify(customer));
 
           setAppUsers((prev) => [...prev, newCustomerUser]);
           setIsAuthModalOpen(false);
@@ -730,7 +1051,7 @@ export default function App() {
 
   const handleCustomerLogout = () => {
     setCustomerUser(null);
-    localStorage.removeItem("thenhanshop_customer");
+    localStorage.removeItem("bookstore_customer");
     setIsUserMenuOpen(false);
     showToast("Đã đăng xuất tài khoản.");
   };
@@ -922,23 +1243,23 @@ export default function App() {
 
     const specsArr = formSpecs
       ? formSpecs.split(",").map((s) => s.trim()).filter(Boolean)
-      : ["Chính hãng", "Bảo hành 12 tháng"];
+      : ["Tác giả: Nhiều tác giả", "NXB: NXB Tri Thức", "Năm XB: 2024"];
 
     const colorsArr = formColors
       ? formColors.split(",").map((c) => c.trim()).filter(Boolean)
-      : ["Mặc định"];
+      : ["Bìa mềm", "Bìa cứng"];
 
     if (editingProduct) {
       // UPDATE
       const updatedProduct: Product = {
         ...editingProduct,
         name: formName.trim(),
-        category: formCategory.trim() || "Phụ kiện",
+        category: formCategory.trim() || "Công nghệ & DevOps",
         price: priceNum,
         originalPrice: origPriceNum,
         rating: ratingNum,
         reviewsCount: reviewsNum,
-        image: formImage.trim() || "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
+        image: formImage.trim() || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
         tag: formTag.trim() || undefined,
         description: formDescription.trim() || formName.trim(),
         specs: specsArr,
@@ -956,19 +1277,19 @@ export default function App() {
         body: JSON.stringify(updatedProduct),
       }).catch((err) => console.error("Error updating product in DB:", err));
 
-      showToast(`Đã cập nhật "${formName}" thành công!`);
+      showToast(`Đã cập nhật cuốn sách "${formName}" thành công!`);
     } else {
       // CREATE
       const newId = products.length > 0 ? Math.max(...products.map((p) => p.id)) + 1 : 1;
       const newProduct: Product = {
         id: newId,
         name: formName.trim(),
-        category: formCategory.trim() || "Phụ kiện",
+        category: formCategory.trim() || "Công nghệ & DevOps",
         price: priceNum,
         originalPrice: origPriceNum,
         rating: ratingNum,
         reviewsCount: reviewsNum,
-        image: formImage.trim() || "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
+        image: formImage.trim() || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
         tag: formTag.trim() || undefined,
         description: formDescription.trim() || formName.trim(),
         specs: specsArr,
@@ -1361,13 +1682,13 @@ export default function App() {
         <div className="bg-neutral-950 text-neutral-300 text-[11px] py-1.5 px-4 text-center tracking-wide font-normal flex items-center justify-between max-w-6xl mx-auto w-full">
           <div className="flex items-center gap-2">
             <Shield className="w-3.5 h-3.5 text-indigo-400" />
-            <span>TheNhanShop - Bảng Quản Trị Hệ Thống (/admin)</span>
+            <span>BookStore - Bảng Quản Trị Hệ Thống (/admin) | Nhóm 1 - DevOps ST23B</span>
           </div>
           <button
             onClick={() => navigateView("store")}
             className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-all shadow-xs"
           >
-            <Store className="w-3.5 h-3.5" /> Xem Shop (Cửa hàng)
+            <Store className="w-3.5 h-3.5" /> Xem Hiệu Sách (Cửa hàng)
           </button>
         </div>
 
@@ -1380,19 +1701,19 @@ export default function App() {
                 className="flex items-center gap-2 text-left"
               >
                 <div className="w-8 h-8 rounded-lg bg-neutral-950 text-white flex items-center justify-center font-bold text-sm tracking-tighter">
-                  TN
+                  <BookOpen className="w-4 h-4 text-indigo-400" />
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1.5">
                     <span className="font-extrabold text-lg tracking-tight text-neutral-950">
-                      TheNhanShop
+                      BookStore
                     </span>
                     <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase tracking-wider">
                       Admin
                     </span>
                   </div>
                   <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold -mt-0.5">
-                    Trang Quản Trị (/admin)
+                    Nhóm 1 - DevOps ST23B
                   </span>
                 </div>
               </button>
@@ -1424,21 +1745,21 @@ export default function App() {
 
         {/* Content: Login or Dashboard CRUD */}
         {!isAdminLoggedIn ? (
-          /* Màn hình đăng nhập dành riêng cho trang localhost:3000/admin khi chưa đăng nhập */
+          /* Màn hình đăng nhập dành riêng cho trang /admin khi chưa đăng nhập */
           <main className="max-w-md mx-auto px-4 py-16 flex-1 w-full flex flex-col justify-center animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-xl border border-neutral-200/90 p-6 sm:p-8">
               <div className="text-center mb-6">
                 <div className="w-12 h-12 rounded-xl bg-neutral-900 text-white flex items-center justify-center mx-auto mb-3 font-bold text-lg shadow-md">
-                  TN
+                  <BookOpen className="w-6 h-6 text-indigo-400" />
                 </div>
                 <span className="px-2.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-bold uppercase tracking-wider">
-                  Admin Portal (/admin)
+                  BookStore Admin Portal
                 </span>
                 <h2 className="text-xl font-black text-neutral-900 mt-2">
                   Đăng Nhập Quản Trị
                 </h2>
                 <p className="text-xs text-neutral-500 mt-1">
-                  Trang quản trị yêu cầu quyền Quản trị viên TheNhanShop để truy cập.
+                  Đồ án cuối kỳ DevOps ST23B - Nhóm 1 (Sách & Kho hàng)
                 </p>
               </div>
 
@@ -1454,7 +1775,7 @@ export default function App() {
                       required
                       value={directAdminAccount}
                       onChange={(e) => setDirectAdminAccount(e.target.value)}
-                      placeholder="admin hoặc thenhan"
+                      placeholder="admin, thenhan, truongan, dinhbao, phuocquan"
                       className="w-full pl-9 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
                     />
                   </div>
@@ -1484,31 +1805,31 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/70 text-[11px] flex items-center justify-between text-neutral-600">
-                  <span>Mặc định: <strong>admin</strong> / <strong>thenhan</strong> (MK: <strong>admin123</strong>)</span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDirectAdminAccount("thenhan");
-                        setDirectAdminPassword("admin123");
-                        showToast("Đã điền tài khoản thenhan!");
-                      }}
-                      className="text-indigo-600 hover:text-indigo-800 font-bold underline text-[10px] cursor-pointer"
-                    >
-                      thenhan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDirectAdminAccount("admin");
-                        setDirectAdminPassword("admin123");
-                        showToast("Đã điền tài khoản admin!");
-                      }}
-                      className="text-neutral-500 hover:text-neutral-900 font-bold underline text-[10px] cursor-pointer"
-                    >
-                      admin
-                    </button>
+                <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/70 text-[11px] text-neutral-600 space-y-1.5">
+                  <div className="flex items-center justify-between font-medium">
+                    <span>Tài khoản thành viên Nhóm 1 (MK: <strong>admin123</strong>):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { acc: "admin", label: "admin" },
+                      { acc: "thenhan", label: "thenhan" },
+                      { acc: "truongan", label: "truongan" },
+                      { acc: "dinhbao", label: "dinhbao" },
+                      { acc: "phuocquan", label: "phuocquan" },
+                    ].map((item) => (
+                      <button
+                        key={item.acc}
+                        type="button"
+                        onClick={() => {
+                          setDirectAdminAccount(item.acc);
+                          setDirectAdminPassword("admin123");
+                          showToast(`Đã chọn tài khoản ${item.acc}!`);
+                        }}
+                        className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200/70 text-[10px] cursor-pointer"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -1966,7 +2287,7 @@ export default function App() {
                                     </div>
                                     <div className="text-xs">
                                       <span className="font-semibold text-neutral-800">
-                                        {items[0]?.name || "Đơn hàng phụ kiện"}
+                                        {items[0]?.name || "Đơn đặt mua sách"}
                                       </span>
                                       {items.length > 1 && (
                                         <span className="text-[11px] text-neutral-400 ml-1">
@@ -3142,19 +3463,19 @@ export default function App() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded bg-neutral-900 text-white font-bold text-[10px] flex items-center justify-center">
-                TN
+                <BookOpen className="w-3 h-3 text-indigo-400" />
               </div>
-              <span className="font-bold text-neutral-900">TheNhanShop Admin</span>
-              <span>— Quản trị kho hàng & sản phẩm (/admin)</span>
+              <span className="font-bold text-neutral-900">BookStore Admin</span>
+              <span>— Quản trị kho sách & đơn hàng (Đồ án DevOps ST23B - Nhóm 1)</span>
             </div>
             <div className="flex items-center gap-4 text-[11px]">
               <button
                 onClick={() => navigateView("store")}
                 className="text-neutral-700 hover:text-neutral-950 font-semibold underline flex items-center gap-1"
               >
-                <Store className="w-3 h-3 text-emerald-600" /> Quay lại trang chủ mua sắm
+                <Store className="w-3 h-3 text-emerald-600" /> Quay lại trang chủ hiệu sách
               </button>
-              <span>© 2024 TheNhanShop</span>
+              <span>© 2026 BookStore ST23B - Nhóm 1</span>
             </div>
           </div>
         </footer>
@@ -3221,7 +3542,7 @@ export default function App() {
         <div className="bg-neutral-900 text-neutral-300 text-[11px] py-1.5 px-4 text-center tracking-wide font-normal flex items-center justify-center max-w-6xl mx-auto w-full">
           <div className="flex items-center gap-2 mx-auto">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>TheNhanShop - Phụ kiện & Đồ chơi công nghệ tối giản</span>
+            <span>BookStore - Hiệu Sách Trực Tuyến | Đồ Án Cuối Kỳ Môn DevOps ST23B (Nhóm 1)</span>
           </div>
         </div>
       )}
@@ -3236,17 +3557,17 @@ export default function App() {
                 setSelectedCategory("Tất cả");
                 setSearchQuery("");
               }}
-              className="flex items-center gap-2 group text-left"
+              className="flex items-center gap-2.5 group text-left"
             >
-              <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-sm tracking-tighter group-hover:scale-95 transition-transform">
-                TN
+              <div className="w-9 h-9 rounded-xl bg-neutral-950 text-white flex items-center justify-center font-bold text-sm tracking-tighter group-hover:scale-95 transition-transform shadow-xs">
+                <BookOpen className="w-5 h-5 text-indigo-400" />
               </div>
               <div className="flex flex-col">
                 <span className="font-extrabold text-lg tracking-tight text-neutral-950">
-                  TheNhanShop
+                  BookStore
                 </span>
                 <span className="text-[9px] text-neutral-400 uppercase tracking-wider font-semibold -mt-1">
-                  Minimal Tech Store
+                  Nhóm 1 - DevOps ST23B
                 </span>
               </div>
             </button>
@@ -3259,7 +3580,7 @@ export default function App() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm phụ kiện công nghệ..."
+              placeholder="Tìm kiếm tựa sách, tác giả, DevOps, kỹ năng..."
               className="w-full pl-8 pr-8 py-1.5 text-xs bg-neutral-100/80 rounded-lg border border-transparent focus:border-neutral-300 focus:bg-white transition-all outline-none"
             />
             {searchQuery && (
@@ -3350,20 +3671,21 @@ export default function App() {
 
       {/* Main Storefront Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full animate-in fade-in duration-200">
-          {/* Banner Tối Giản */}
-          <div className="bg-neutral-950 text-white rounded-2xl p-6 sm:p-10 mb-8 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="max-w-md z-10">
-              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-widest block mb-2">
-                Bộ Sưu Tập Phụ Kiện Tối Giản
-              </span>
+          {/* Banner BookStore - Tri thức & Văn hóa đọc */}
+          <div className="bg-gradient-to-r from-neutral-950 via-slate-900 to-neutral-950 text-white rounded-2xl p-6 sm:p-10 mb-8 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-md border border-neutral-800">
+            <div className="max-w-lg z-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-[11px] font-bold tracking-wider uppercase mb-3 border border-indigo-500/30">
+                <BookOpen className="w-3.5 h-3.5" /> Đồ Án Cuối Kỳ Môn DevOps ST23B - Nhóm 1
+              </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-3 leading-snug">
-                Trang Bị Bàn Làm Việc <br /> Tinh Tế & Vừa Túi Tiền.
+                Khơi Nguồn Tri Thức <br /> Đồng Hành Cùng Đam Mê Sách.
               </h1>
-              <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed mb-4">
-                Cung cấp phụ kiện công nghệ, tai nghe, chuột phím và củ sạc nhỏ gọn với chất lượng hoàn thiện cao và mức giá hợp lý.
+              <p className="text-neutral-300 text-xs sm:text-sm leading-relaxed mb-4">
+                Hiệu sách trực tuyến <strong>BookStore</strong> tuyển chọn các tác phẩm kinh điển và cẩm nang thực chiến về Công nghệ thông tin & DevOps, Kỹ năng sống, Kinh tế - Quản trị và Văn học nghệ thuật với mức giá ưu đãi nhất cho sinh viên.
               </p>
-              <div className="flex items-center gap-2 text-xs font-medium text-neutral-300">
-                <Check className="w-4 h-4 text-emerald-400" /> Bảo hành 12 tháng lỗi 1 đổi 1
+              <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-neutral-300">
+                <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> 100% Sách Thật NXB</span>
+                <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-400" /> Tặng kèm Bookmark & Bọc sách</span>
               </div>
             </div>
 
@@ -3376,7 +3698,7 @@ export default function App() {
               <div className="bg-neutral-900/90 border border-neutral-800 p-3.5 rounded-xl">
                 <RotateCcw className="w-4 h-4 text-neutral-300 mb-1.5" />
                 <div className="font-semibold text-neutral-200">Đổi Trả 7 Ngày</div>
-                <div className="text-[10px] text-neutral-400">Nếu không vừa ý</div>
+                <div className="text-[10px] text-neutral-400">Nếu lỗi in ấn hoặc rách trang</div>
               </div>
             </div>
           </div>
@@ -3568,16 +3890,16 @@ export default function App() {
 
             {/* Header Form */}
             <div className="text-center mb-6">
-              <div className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center mx-auto mb-3 font-bold text-base">
-                TN
+              <div className="w-10 h-10 rounded-xl bg-neutral-900 text-white flex items-center justify-center mx-auto mb-3 font-bold text-base shadow-sm">
+                <BookOpen className="w-5 h-5 text-indigo-400" />
               </div>
               <h3 className="text-lg font-extrabold text-neutral-950">
                 {authMode === "login" ? "Chào mừng trở lại!" : "Tạo tài khoản mới"}
               </h3>
               <p className="text-xs text-neutral-500 mt-1">
                 {authMode === "login"
-                  ? "Đăng nhập để nhận ưu đãi và theo dõi đơn hàng"
-                  : "Trở thành thành viên TheNhanShop ngay hôm nay"}
+                  ? "Đăng nhập để nhận ưu đãi và theo dõi đơn mua sách"
+                  : "Trở thành thành viên BookStore ngay hôm nay"}
               </p>
             </div>
 
@@ -3837,12 +4159,12 @@ export default function App() {
                 {/* Specs */}
                 <div className="mb-4">
                   <h4 className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider mb-2">
-                    Thông số nổi bật:
+                    Thông tin xuất bản & Tác giả:
                   </h4>
-                  <div className="grid grid-cols-2 gap-1.5 text-xs text-neutral-600">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-600">
                     {selectedProduct.specs.map((spec, i) => (
                       <div key={i} className="flex items-center gap-1 text-[11px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                         {spec}
                       </div>
                     ))}
@@ -3852,7 +4174,7 @@ export default function App() {
                 {/* Color Selection */}
                 <div className="mb-4">
                   <h4 className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider mb-2">
-                    Phân loại màu sắc:
+                    Chọn phiên bản bìa:
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedProduct.colors.map((c) => (
@@ -4390,7 +4712,7 @@ export default function App() {
                       .catch((err) => console.error("Error creating order in DB:", err));
 
                     alert(
-                      `🎉 Đặt hàng thành công! Mã đơn: ${newOrderId}.\n👤 Khách hàng: ${customerUser.name} (${customerUser.email})\n📍 Giao đến: ${finalAddress}\n📞 SĐT: ${finalPhone}\n📝 Ghi chú: ${finalNote}\n\nĐơn hàng đã được lưu và gửi tới hệ thống quản lý TheNhanShop.`
+                      `🎉 Đặt mua sách thành công! Mã đơn: ${newOrderId}.\n👤 Khách hàng: ${customerUser.name} (${customerUser.email})\n📍 Giao đến: ${finalAddress}\n📞 SĐT: ${finalPhone}\n📝 Ghi chú: ${finalNote}\n\nĐơn hàng đã được lưu và gửi tới hệ thống quản lý BookStore.`
                     );
                     setCart([]);
                     setCheckoutPhone("");
@@ -4410,30 +4732,39 @@ export default function App() {
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer Storefront */}
       <footer className="bg-white border-t border-neutral-200 text-xs py-8 text-neutral-500 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-neutral-900 text-white font-bold text-xs flex items-center justify-center">
-              TN
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
+            <div className="w-9 h-9 rounded-xl bg-neutral-900 text-white flex items-center justify-center font-bold shadow-xs">
+              <BookOpen className="w-5 h-5 text-indigo-400" />
             </div>
-            <span className="font-bold text-neutral-900">TheNhanShop</span>
-            <span>— Đồ chơi & Phụ kiện công nghệ tối giản</span>
+            <div>
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <span className="font-extrabold text-neutral-900 text-sm">BookStore</span>
+                <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                  Dự Án Cuối Kỳ Môn DevOps ST23B - Nhóm 1
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                Thành viên: <strong>Hoàng Trường Ân</strong> • <strong>Cao Đình Bảo</strong> • <strong>Đinh Ngọc Thế Nhân</strong> • <strong>Huỳnh Phước Quân</strong>
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6 text-[11px] flex-wrap">
+          <div className="flex items-center gap-4 sm:gap-6 text-[11px] flex-wrap justify-center">
             <button
               onClick={() => navigateView("admin")}
-              className="flex items-center gap-1.5 text-neutral-500 hover:text-indigo-600 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-neutral-600 hover:text-indigo-600 font-semibold transition-colors cursor-pointer"
               title="Mở Bảng Quản Trị (/admin)"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span>{isAdminLoggedIn ? "Quay lại trang Admin" : "Trang Quản Trị (/admin)"}</span>
             </button>
             <span className="flex items-center gap-1">
-              <Shield className="w-3.5 h-3.5" /> Cam kết chính hãng
+              <Shield className="w-3.5 h-3.5 text-emerald-600" /> 100% Sách Thật NXB
             </span>
-            <span>© 2024 TheNhanShop</span>
+            <span>© 2026 BookStore - Nhóm 1 ST23B</span>
           </div>
         </div>
       </footer>
