@@ -39,18 +39,24 @@ export async function connectDB() {
       console.log(`✅ Đã nạp thành công ${INITIAL_USERS.length} tài khoản người dùng ban đầu.`);
     }
 
-    // 2. Tự động Seed Categories nếu collection rỗng
+    // 2. Tự động đồng bộ 5 Danh mục Thực tế của Nhà sách
     const categoryCount = await Category.countDocuments();
-    if (categoryCount === 0) {
+    const hasOldDevOpsCategory = await Category.findOne({ name: 'Công nghệ & DevOps' });
+    if (categoryCount < INITIAL_CATEGORIES.length || hasOldDevOpsCategory) {
+      console.log(`📚 Đang cập nhật 5 danh mục sách thực tế của nhà sách (Fahasa/Tiki)...`);
+      await Category.deleteMany({});
       await Category.insertMany(INITIAL_CATEGORIES);
-      console.log(`✅ Đã nạp thành công ${INITIAL_CATEGORIES.length} danh mục sách ban đầu.`);
+      console.log(`✅ Đã cập nhật thành công ${INITIAL_CATEGORIES.length} danh mục sách thực tế.`);
     }
 
-    // 3. Tự động Seed Books nếu collection rỗng
+    // 3. Tự động đồng bộ 300 cuốn sách thực tế
     const bookCount = await Book.countDocuments();
-    if (bookCount === 0) {
+    const hasOldDevOpsBook = await Book.findOne({ category: 'Công nghệ & DevOps' });
+    if (bookCount < INITIAL_BOOKS.length || hasOldDevOpsBook) {
+      console.log(`📚 Đang đồng bộ toàn bộ 300 cuốn sách thực tế vào cơ sở dữ liệu...`);
+      await Book.deleteMany({});
       await Book.insertMany(INITIAL_BOOKS);
-      console.log(`✅ Đã nạp thành công ${INITIAL_BOOKS.length} cuốn sách ban đầu.`);
+      console.log(`✅ Đã nạp thành công toàn bộ ${INITIAL_BOOKS.length} cuốn sách vào cơ sở dữ liệu.`);
     }
 
     return mongoose.connection;
