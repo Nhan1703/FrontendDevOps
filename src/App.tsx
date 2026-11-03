@@ -660,7 +660,8 @@ export default function App() {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          const isOldCache = parsed.length <= 10 || parsed.some((p: any) => p.category === "Công nghệ & DevOps");
+          if (Array.isArray(parsed) && parsed.length > 0 && !isOldCache) return parsed;
         } catch (e) {
           console.error("Error loading products from localStorage", e);
         }
@@ -772,8 +773,10 @@ export default function App() {
     fetch("/api/products")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.data)) {
-          setProducts(data.data);
+        const list = (data && data.data) || (data && data.products) || (data && data.books) || (Array.isArray(data) ? data : null);
+        if (Array.isArray(list) && list.length > 0) {
+          setProducts(list);
+          localStorage.setItem("bookstore_products", JSON.stringify(list));
         }
       })
       .catch((err) => console.error("Error loading products from DB:", err));

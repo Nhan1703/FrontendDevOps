@@ -22,13 +22,15 @@ export class BookController {
       // 2. Gọi Service thực hiện nghiệp vụ tìm kiếm và phân trang
       const result = await bookService.getBooksPaged(queryDTO);
 
-      // 3. Trả về Response chuẩn RESTful, đồng thời kèm alias products cho frontend
+      // 3. Trả về Response chuẩn RESTful, đồng thời kèm data, books, products để tương thích 100%
       return res.status(200).json({
         success: true,
         count: result.items.length,
+        total: result.pagination.total,
         pagination: result.pagination,
+        data: result.items,      // Trường mà Frontend fetch("/api/products") kiểm tra: data.success && Array.isArray(data.data)
+        products: result.items,  // Alias tương thích trực tiếp với UI React
         books: result.items,
-        products: result.items, // Alias tương thích trực tiếp với UI React
       });
     } catch (error) {
       next(error);
@@ -48,6 +50,7 @@ export class BookController {
       const book = await bookService.getBookById(bookId);
       return res.status(200).json({
         success: true,
+        data: book,
         book,
         product: book, // Alias tương thích ngược
       });
@@ -73,6 +76,7 @@ export class BookController {
       return res.status(201).json({
         success: true,
         message: 'Thêm mới cuốn sách thành công!',
+        data: newBook,
         book: newBook,
         product: newBook,
       });
@@ -103,6 +107,7 @@ export class BookController {
       return res.status(200).json({
         success: true,
         message: 'Cập nhật thông tin cuốn sách thành công!',
+        data: updated,
         book: updated,
         product: updated,
       });

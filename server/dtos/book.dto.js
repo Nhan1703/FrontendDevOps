@@ -5,12 +5,15 @@
 
 /**
  * Phân tích và chuẩn hóa tham số tìm kiếm, phân trang và lọc sách (QueryBookDTO)
+ * Nếu client không chỉ định limit, mặc định lấy toàn bộ danh mục (tối đa 500)
  * @param {object} query - req.query từ client
  * @returns {{page: number, limit: number, skip: number, search: string, categoryId: number|null, categoryName: string|null}}
  */
 export function parseQueryBookDTO(query = {}) {
+  const isPagingExplicit = query.page !== undefined || query.limit !== undefined;
   const page = Math.max(1, parseInt(query.page, 10) || 1);
-  const limit = Math.max(1, Math.min(100, parseInt(query.limit, 10) || 10));
+  // Nếu client gọi /api/products không truyền limit, trả về toàn bộ catalog (tối đa 500) để hỗ trợ frontend
+  const limit = isPagingExplicit ? Math.max(1, Math.min(500, parseInt(query.limit, 10) || 10)) : 500;
   const skip = (page - 1) * limit;
   const search = (query.search || query.keyword || query.q || '').trim();
 
