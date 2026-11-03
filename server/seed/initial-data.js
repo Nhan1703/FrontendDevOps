@@ -1,0 +1,247 @@
+// ==============================================================================
+// DỮ LIỆU KHỞI TẠO BAN ĐẦU (SEED DATA) - ONLINE BOOKSTORE
+// Nguồn: Dữ liệu mẫu chuẩn hóa từ MongoDB của Đồ án DevOps ST23B - Nhóm 1
+// Chứa đầy đủ thông tin: Users (Admin & Khách hàng), Categories, Books, Coupons, Orders
+// ==============================================================================
+
+// 1. Danh sách người dùng hệ thống ban đầu (Users)
+export const INITIAL_USERS = [
+  {
+    id: 'USR-001',
+    fullName: 'Quản trị viên (Admin)',
+    email: 'admin',
+    // Mật khẩu dạng hash hoặc mật khẩu gốc cho demo hệ thống
+    passwordHash: 'admin123',
+    role: 'Admin',
+    phoneNumber: '0900000001',
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'USR-002',
+    fullName: 'Đinh Ngọc Thế Nhân (Nhóm trưởng)',
+    email: 'thenhan',
+    passwordHash: 'admin123',
+    role: 'Admin',
+    phoneNumber: '0917714595',
+    status: 'active',
+    createdAt: '2026-08-09T00:00:00.000Z',
+  },
+  {
+    id: 'USR-003',
+    fullName: 'Hoàng Trường Ân (Nhóm 1)',
+    email: 'truongan',
+    passwordHash: 'admin123',
+    role: 'Admin',
+    phoneNumber: '0901112233',
+    status: 'active',
+    createdAt: '2026-08-09T00:00:00.000Z',
+  },
+  {
+    id: 'USR-004',
+    fullName: 'Cao Đình Bảo (Nhóm 1)',
+    email: 'dinhbao',
+    passwordHash: 'admin123',
+    role: 'Admin',
+    phoneNumber: '0902223344',
+    status: 'active',
+    createdAt: '2026-08-09T00:00:00.000Z',
+  },
+  {
+    id: 'USR-005',
+    fullName: 'Huỳnh Phước Quân (Nhóm 1)',
+    email: 'phuocquan',
+    passwordHash: 'admin123',
+    role: 'Admin',
+    phoneNumber: '0903334455',
+    status: 'active',
+    createdAt: '2026-08-09T00:00:00.000Z',
+  },
+  {
+    id: 'USR-006',
+    fullName: 'Nguyễn Hoàng Nam',
+    email: 'hoangnam@gmail.com',
+    passwordHash: 'kh123',
+    role: 'Customer',
+    phoneNumber: '0912345678',
+    status: 'active',
+    createdAt: '2026-05-15T00:00:00.000Z',
+  },
+  {
+    id: 'USR-007',
+    fullName: 'Trần Thảo My',
+    email: 'thaomy.tran@gmail.com',
+    passwordHash: 'kh123',
+    role: 'Customer',
+    phoneNumber: '0988765432',
+    status: 'active',
+    createdAt: '2026-07-22T00:00:00.000Z',
+  },
+];
+
+// 2. Danh mục sách ban đầu (Categories)
+export const INITIAL_CATEGORIES = [
+  {
+    id: 1,
+    name: 'Công nghệ & DevOps',
+    slug: 'cong-nghe-devops',
+    description: 'Sách chuyên sâu về kiến trúc phần mềm, DevOps, CI/CD và Cloud.',
+  },
+  {
+    id: 2,
+    name: 'Kỹ năng sống',
+    slug: 'ky-nang-song',
+    description: 'Phát triển bản thân, tư duy thấu cảm và năng suất làm việc.',
+  },
+  {
+    id: 3,
+    name: 'Kinh tế & Quản trị',
+    slug: 'kinh-te-quan-tri',
+    description: 'Khởi nghiệp, quản trị dự án tinh gọn và tài chính đầu tư.',
+  },
+  {
+    id: 4,
+    name: 'Văn học & Nghệ thuật',
+    slug: 'van-hoc-nghe-thuat',
+    description: 'Tiểu thuyết kinh điển và tác phẩm truyền cảm hứng thế giới.',
+  },
+];
+
+// 3. Danh sách 10 đầu sách chuẩn từ MongoDB (Books)
+export const INITIAL_BOOKS = [
+  {
+    id: 1,
+    title: 'The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)',
+    author: 'Gene Kim, Kevin Behr, George Spafford',
+    categoryId: 1,
+    price: 168000,
+    stockQuantity: 45,
+    imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Tác phẩm kinh điển gối đầu giường của mọi kỹ sư DevOps và quản lý CNTT thế giới.',
+  },
+  {
+    id: 2,
+    title: 'The DevOps Handbook - Cẩm Nang Thực Hành DevOps Toàn Tập',
+    author: 'Gene Kim, Jez Humble, Patrick Debois',
+    categoryId: 1,
+    price: 215000,
+    stockQuantity: 30,
+    imageUrl: 'https://images.unsplash.com/photo-1532012164546-f432f2e37272?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Cẩm nang toàn diện nhất hướng dẫn triển khai CI/CD, tự động hóa hạ tầng (IaC) và SRE.',
+  },
+  {
+    id: 3,
+    title: 'Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu',
+    author: 'Robert C. Martin (Uncle Bob)',
+    categoryId: 1,
+    price: 195000,
+    stockQuantity: 25,
+    imageUrl: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Quy chuẩn lập trình tối thượng giúp viết mã nguồn sạch, dễ mở rộng và bảo trì dài hạn.',
+  },
+  {
+    id: 4,
+    title: 'Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ',
+    author: 'James Clear',
+    categoryId: 2,
+    price: 149000,
+    stockQuantity: 80,
+    imageUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: '4 quy luật tâm lý học đơn giản để xây dựng thói quen tốt và loại bỏ thói quen xấu.',
+  },
+  {
+    id: 5,
+    title: 'Đắc Nhân Tâm - Nghệ Thuật Thu Phục Lòng Người',
+    author: 'Dale Carnegie',
+    categoryId: 2,
+    price: 88000,
+    stockQuantity: 120,
+    imageUrl: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Cuốn sách bất hủ hướng dẫn nghệ thuật ứng xử và kết nối chân thành giữa người với người.',
+  },
+  {
+    id: 6,
+    title: 'Nhà Đầu Tư Thông Minh (The Intelligent Investor)',
+    author: 'Benjamin Graham',
+    categoryId: 3,
+    price: 235000,
+    stockQuantity: 18,
+    imageUrl: 'https://images.unsplash.com/photo-1592496431122-2349e0fbc666?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Triết lý đầu tư giá trị kinh điển định hình tư duy của các nhà đầu tư vĩ đại nhất thế giới.',
+  },
+  {
+    id: 7,
+    title: 'Khởi Nghiệp Tinh Gọn (The Lean Startup)',
+    author: 'Eric Ries',
+    categoryId: 3,
+    price: 155000,
+    stockQuantity: 35,
+    imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Phương pháp kiểm chứng giả định nhanh chóng và giảm thiểu rủi ro cho sản phẩm công nghệ.',
+  },
+  {
+    id: 8,
+    title: 'Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm',
+    author: 'Paulo Coelho',
+    categoryId: 4,
+    price: 79000,
+    stockQuantity: 60,
+    imageUrl: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Hành trình vượt sa mạc tìm kho báu và bài học lắng nghe ước mơ đích thực của tâm hồn.',
+  },
+  {
+    id: 9,
+    title: 'Cây Cam Ngọt Của Tôi - Ấn Bản Đặc Biệt',
+    author: 'José Mauro de Vasconcelos',
+    categoryId: 4,
+    price: 92000,
+    stockQuantity: 4, // Số lượng thấp dùng để test kiểm tra tồn kho
+    imageUrl: 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Câu chuyện cảm động về sự đồng cảm và tình yêu thương của tuổi thơ ngây thơ trong sáng.',
+  },
+  {
+    id: 10,
+    title: 'Deep Work - Làm Ra Làm, Chơi Ra Chơi',
+    author: 'Cal Newport',
+    categoryId: 2,
+    price: 135000,
+    stockQuantity: 3, // Số lượng thấp để test kiểm tra tồn kho
+    imageUrl: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80',
+    isActive: true,
+    description: 'Phương pháp tập trung cao độ để bứt phá năng suất lao động trí tuệ trong kỷ nguyên số.',
+  },
+];
+
+// 4. Mã giảm giá ban đầu (Coupons)
+export const INITIAL_COUPONS = [
+  {
+    code: 'DEVOPS20',
+    discountType: 'Percentage',
+    discountValue: 20,
+    minOrderAmount: 200000,
+    maxDiscountAmount: 50000,
+  },
+  {
+    code: 'BOOKSTORE10',
+    discountType: 'Percentage',
+    discountValue: 10,
+    minOrderAmount: 100000,
+    maxDiscountAmount: 30000,
+  },
+  {
+    code: 'BANMOI50K',
+    discountType: 'FixedAmount',
+    discountValue: 50000,
+    minOrderAmount: 300000,
+    maxDiscountAmount: 50000,
+  },
+];

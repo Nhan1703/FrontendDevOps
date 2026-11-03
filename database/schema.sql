@@ -1,228 +1,347 @@
 -- =======================================================================
--- KỊCH BẢN TẠO CƠ SỞ DỮ LIỆU & BẢNG CHO DỰ ÁN BOOKSTORE (MÔN DEVOPS ST23B)
--- Nhóm thực hiện: Nhóm 1
+-- KIẾN TRÚC CƠ SỞ DỮ LIỆU CHUẨN HÓA 3NF - BOOKSTORE SYSTEM
+-- Học phần: DevOps ST23B - Nhóm 1
+-- Đề tài: Hệ Thống Quản Lý và Bán Sách Trực Tuyến (Bookstore System)
 -- Thành viên:
--- 1. Hoàng Trường Ân
--- 2. Cao Đình Bảo
--- 3. Đinh Ngọc Thế Nhân
--- 4. Huỳnh Phước Quân
--- Hệ quản trị: Microsoft SQL Server / Tương thích MongoDB
+--   1. Hoàng Trường Ân
+--   2. Cao Đình Bảo
+--   3. Đinh Ngọc Thế Nhân (Nhóm trưởng)
+--   4. Huỳnh Phước Quân
+-- Hệ quản trị: Microsoft SQL Server / Tương thích MongoDB & PostgreSQL
 -- =======================================================================
 
--- Xóa các bảng cũ nếu đã tồn tại để tránh xung đột khóa ngoại
+-- Xóa các bảng cũ theo thứ tự ràng buộc khóa ngoại
+IF OBJECT_ID('dbo.Reviews', 'U') IS NOT NULL DROP TABLE dbo.Reviews;
 IF OBJECT_ID('dbo.OrderItems', 'U') IS NOT NULL DROP TABLE dbo.OrderItems;
 IF OBJECT_ID('dbo.Orders', 'U') IS NOT NULL DROP TABLE dbo.Orders;
-IF OBJECT_ID('dbo.Products', 'U') IS NOT NULL DROP TABLE dbo.Products;
+IF OBJECT_ID('dbo.Coupons', 'U') IS NOT NULL DROP TABLE dbo.Coupons;
+IF OBJECT_ID('dbo.CartItems', 'U') IS NOT NULL DROP TABLE dbo.CartItems;
+IF OBJECT_ID('dbo.Carts', 'U') IS NOT NULL DROP TABLE dbo.Carts;
+IF OBJECT_ID('dbo.BookImages', 'U') IS NOT NULL DROP TABLE dbo.BookImages;
+IF OBJECT_ID('dbo.BookCategories', 'U') IS NOT NULL DROP TABLE dbo.BookCategories;
+IF OBJECT_ID('dbo.BookAuthors', 'U') IS NOT NULL DROP TABLE dbo.BookAuthors;
+IF OBJECT_ID('dbo.Books', 'U') IS NOT NULL DROP TABLE dbo.Books;
+IF OBJECT_ID('dbo.Publishers', 'U') IS NOT NULL DROP TABLE dbo.Publishers;
+IF OBJECT_ID('dbo.Authors', 'U') IS NOT NULL DROP TABLE dbo.Authors;
 IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DROP TABLE dbo.Categories;
+IF OBJECT_ID('dbo.UserAddresses', 'U') IS NOT NULL DROP TABLE dbo.UserAddresses;
+IF OBJECT_ID('dbo.UserRoles', 'U') IS NOT NULL DROP TABLE dbo.UserRoles;
+IF OBJECT_ID('dbo.Roles', 'U') IS NOT NULL DROP TABLE dbo.Roles;
 IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
 GO
 
 -- =======================================================================
--- 1. BẢNG USERS (Người dùng & Quản trị viên Nhóm 1)
+-- 1. BẢNG USERS (Người dùng hệ thống)
 -- =======================================================================
 CREATE TABLE dbo.Users (
-    id NVARCHAR(50) PRIMARY KEY,                  -- Mã người dùng (vd: USR-001)
-    name NVARCHAR(100) NOT NULL,                  -- Họ và tên
-    email NVARCHAR(150) NOT NULL UNIQUE,          -- Email / Username đăng nhập
-    password NVARCHAR(255) NOT NULL,              -- Mật khẩu
-    phone NVARCHAR(20) NULL,                      -- Số điện thoại
-    role NVARCHAR(20) DEFAULT 'customer',         -- 'admin' hoặc 'customer'
-    status NVARCHAR(20) DEFAULT 'active',         -- 'active' hoặc 'locked'
-    avatar NVARCHAR(500) NULL,                    -- Đường dẫn ảnh đại diện
-    orders_count INT DEFAULT 0,                   -- Số lượng đơn hàng đã đặt
-    created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(10), GETDATE(), 103) -- Ngày tạo (dd/mm/yyyy)
+    Id NVARCHAR(50) PRIMARY KEY,
+    FullName NVARCHAR(150) NOT NULL,
+    Email NVARCHAR(150) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    PhoneNumber NVARCHAR(20) NULL,
+    AvatarUrl NVARCHAR(500) NULL,
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE()
+);
+CREATE INDEX IX_Users_Email ON dbo.Users(Email);
+GO
+
+-- =======================================================================
+-- 2. BẢNG ROLES & USER_ROLES (Phân quyền RBAC)
+-- =======================================================================
+CREATE TABLE dbo.Roles (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    RoleName NVARCHAR(50) NOT NULL UNIQUE -- 'Admin', 'Staff', 'Customer'
+);
+
+CREATE TABLE dbo.UserRoles (
+    UserId NVARCHAR(50) NOT NULL,
+    RoleId INT NOT NULL,
+    PRIMARY KEY (UserId, RoleId),
+    CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleId) REFERENCES dbo.Roles(Id) ON DELETE CASCADE
 );
 GO
 
 -- =======================================================================
--- 2. BẢNG CATEGORIES (Danh mục sách BookStore)
+-- 3. BẢNG USER_ADDRESSES (Sổ địa chỉ giao hàng của khách)
+-- =======================================================================
+CREATE TABLE dbo.UserAddresses (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    UserId NVARCHAR(50) NOT NULL,
+    RecipientName NVARCHAR(100) NOT NULL,
+    Phone NVARCHAR(20) NOT NULL,
+    AddressLine NVARCHAR(255) NOT NULL,
+    City NVARCHAR(100) NOT NULL,
+    District NVARCHAR(100) NOT NULL,
+    IsDefault BIT DEFAULT 0,
+    CONSTRAINT FK_UserAddresses_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id) ON DELETE CASCADE
+);
+CREATE INDEX IX_UserAddresses_UserId ON dbo.UserAddresses(UserId);
+GO
+
+-- =======================================================================
+-- 4. BẢNG CATEGORIES (Thể loại sách - Hỗ trợ cây phân cấp Cha - Con)
 -- =======================================================================
 CREATE TABLE dbo.Categories (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(100) NOT NULL UNIQUE,
-    slug NVARCHAR(100) NULL,
-    description NVARCHAR(255) NULL
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL UNIQUE,
+    Slug NVARCHAR(120) NOT NULL UNIQUE,
+    ParentId INT NULL,
+    Description NVARCHAR(255) NULL,
+    IsActive BIT DEFAULT 1,
+    CONSTRAINT FK_Categories_Parent FOREIGN KEY (ParentId) REFERENCES dbo.Categories(Id) ON DELETE NO ACTION
+);
+CREATE INDEX IX_Categories_ParentId ON dbo.Categories(ParentId);
+GO
+
+-- =======================================================================
+-- 5. BẢNG AUTHORS (Tác giả)
+-- =======================================================================
+CREATE TABLE dbo.Authors (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Name NVARCHAR(150) NOT NULL,
+    Bio NVARCHAR(MAX) NULL,
+    AvatarUrl NVARCHAR(500) NULL
 );
 GO
 
 -- =======================================================================
--- 3. BẢNG PRODUCTS (Danh mục sách BookStore)
+-- 6. BẢNG PUBLISHERS (Nhà xuất bản)
 -- =======================================================================
-CREATE TABLE dbo.Products (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(255) NOT NULL,
-    category_id INT NULL,
-    category NVARCHAR(100) NOT NULL,
-    price DECIMAL(18,2) NOT NULL,
-    original_price DECIMAL(18,2) NOT NULL,
-    rating FLOAT DEFAULT 5.0,
-    reviews_count INT DEFAULT 0,
-    image NVARCHAR(500) NOT NULL,
-    tag NVARCHAR(50) NULL,
-    description NVARCHAR(MAX) NULL,
-    specs NVARCHAR(MAX) NULL,                     -- Thông tin xuất bản (JSON)
-    colors NVARCHAR(MAX) NULL,                    -- Phiên bản bìa sách (JSON)
-    created_at DATETIME2 DEFAULT GETDATE(),
-    CONSTRAINT FK_Products_Categories FOREIGN KEY (category_id) REFERENCES dbo.Categories(id) ON DELETE SET NULL
+CREATE TABLE dbo.Publishers (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Name NVARCHAR(150) NOT NULL UNIQUE,
+    Address NVARCHAR(255) NULL,
+    Website NVARCHAR(255) NULL
 );
 GO
 
 -- =======================================================================
--- 4. BẢNG ORDERS (Đơn đặt mua sách)
+-- 7. BẢNG BOOKS (Sách)
+-- =======================================================================
+CREATE TABLE dbo.Books (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Title NVARCHAR(255) NOT NULL,
+    Slug NVARCHAR(280) NOT NULL UNIQUE,
+    ISBN NVARCHAR(30) NOT NULL UNIQUE,
+    PublisherId INT NULL,
+    PublicationYear INT NOT NULL,
+    Price DECIMAL(18,2) NOT NULL,
+    DiscountPrice DECIMAL(18,2) NULL,
+    StockQuantity INT NOT NULL DEFAULT 0,
+    Description NVARCHAR(MAX) NULL,
+    CoverImageUrl NVARCHAR(500) NOT NULL,
+    PageCount INT NOT NULL DEFAULT 0,
+    Weight INT NOT NULL DEFAULT 350,               -- Đơn vị: gram
+    Rating FLOAT DEFAULT 5.0,
+    ReviewsCount INT DEFAULT 0,
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    CONSTRAINT FK_Books_Publishers FOREIGN KEY (PublisherId) REFERENCES dbo.Publishers(Id) ON DELETE SET NULL,
+    CONSTRAINT CHK_Books_Stock CHECK (StockQuantity >= 0)
+);
+CREATE INDEX IX_Books_ISBN ON dbo.Books(ISBN);
+CREATE INDEX IX_Books_Price ON dbo.Books(Price);
+CREATE INDEX IX_Books_Rating ON dbo.Books(Rating);
+GO
+
+-- =======================================================================
+-- 8. BẢNG BOOK_AUTHORS & BOOK_CATEGORIES (Quan hệ nhiều - nhiều N:N)
+-- =======================================================================
+CREATE TABLE dbo.BookAuthors (
+    BookId INT NOT NULL,
+    AuthorId INT NOT NULL,
+    PRIMARY KEY (BookId, AuthorId),
+    CONSTRAINT FK_BookAuthors_Books FOREIGN KEY (BookId) REFERENCES dbo.Books(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_BookAuthors_Authors FOREIGN KEY (AuthorId) REFERENCES dbo.Authors(Id) ON DELETE CASCADE
+);
+
+CREATE TABLE dbo.BookCategories (
+    BookId INT NOT NULL,
+    CategoryId INT NOT NULL,
+    PRIMARY KEY (BookId, CategoryId),
+    CONSTRAINT FK_BookCategories_Books FOREIGN KEY (BookId) REFERENCES dbo.Books(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_BookCategories_Categories FOREIGN KEY (CategoryId) REFERENCES dbo.Categories(Id) ON DELETE CASCADE
+);
+GO
+
+-- =======================================================================
+-- 9. BẢNG BOOK_IMAGES (Thư viện ảnh chi tiết / Preview)
+-- =======================================================================
+CREATE TABLE dbo.BookImages (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    BookId INT NOT NULL,
+    ImageUrl NVARCHAR(500) NOT NULL,
+    DisplayOrder INT DEFAULT 0,
+    CONSTRAINT FK_BookImages_Books FOREIGN KEY (BookId) REFERENCES dbo.Books(Id) ON DELETE CASCADE
+);
+GO
+
+-- =======================================================================
+-- 10. BẢNG CARTS & CART_ITEMS (Giỏ hàng người dùng)
+-- =======================================================================
+CREATE TABLE dbo.Carts (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    UserId NVARCHAR(50) NOT NULL UNIQUE,
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    CONSTRAINT FK_Carts_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id) ON DELETE CASCADE
+);
+
+CREATE TABLE dbo.CartItems (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    CartId INT NOT NULL,
+    BookId INT NOT NULL,
+    Quantity INT NOT NULL DEFAULT 1,
+    CONSTRAINT FK_CartItems_Carts FOREIGN KEY (CartId) REFERENCES dbo.Carts(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_CartItems_Books FOREIGN KEY (BookId) REFERENCES dbo.Books(Id) ON DELETE CASCADE,
+    CONSTRAINT UQ_Cart_Book UNIQUE (CartId, BookId)
+);
+GO
+
+-- =======================================================================
+-- 11. BẢNG COUPONS (Mã giảm giá & Khuyến mãi)
+-- =======================================================================
+CREATE TABLE dbo.Coupons (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Code NVARCHAR(50) NOT NULL UNIQUE,
+    DiscountType NVARCHAR(20) NOT NULL,           -- 'Percentage' hoặc 'FixedAmount'
+    DiscountValue DECIMAL(18,2) NOT NULL,
+    MinOrderAmount DECIMAL(18,2) DEFAULT 0,
+    MaxDiscountAmount DECIMAL(18,2) NULL,
+    UsageLimit INT DEFAULT 100,
+    UsedCount INT DEFAULT 0,
+    StartDate DATETIME2 NOT NULL,
+    EndDate DATETIME2 NOT NULL,
+    IsActive BIT DEFAULT 1
+);
+CREATE INDEX IX_Coupons_Code ON dbo.Coupons(Code);
+GO
+
+-- =======================================================================
+-- 12. BẢNG ORDERS & ORDER_ITEMS (Quản lý đơn hàng & chi tiết)
 -- =======================================================================
 CREATE TABLE dbo.Orders (
-    id NVARCHAR(50) PRIMARY KEY,                  -- Mã đơn hàng (vd: DH-1001, DH-1002)
-    user_id NVARCHAR(50) NULL,
-    customer_name NVARCHAR(100) NOT NULL,
-    customer_email NVARCHAR(150) NOT NULL,
-    customer_phone NVARCHAR(20) NOT NULL,
-    customer_address NVARCHAR(255) NOT NULL,
-    total_amount DECIMAL(18,2) NOT NULL,
-    status NVARCHAR(30) DEFAULT 'pending',        -- 'pending', 'shipping', 'delivered', 'cancelled'
-    note NVARCHAR(500) NULL,
-    created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
-    CONSTRAINT FK_Orders_Users FOREIGN KEY (user_id) REFERENCES dbo.Users(id) ON DELETE SET NULL
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    OrderCode NVARCHAR(50) NOT NULL UNIQUE,        -- vd: DH-9082
+    UserId NVARCHAR(50) NULL,
+    RecipientName NVARCHAR(150) NOT NULL,
+    RecipientPhone NVARCHAR(20) NOT NULL,
+    ShippingAddress NVARCHAR(350) NOT NULL,
+    TotalBookAmount DECIMAL(18,2) NOT NULL,
+    ShippingFee DECIMAL(18,2) DEFAULT 0,
+    DiscountAmount DECIMAL(18,2) DEFAULT 0,
+    FinalAmount DECIMAL(18,2) NOT NULL,
+    CouponId INT NULL,
+    OrderStatus NVARCHAR(30) DEFAULT 'Pending',    -- 'Pending', 'Processing', 'Shipping', 'Delivered', 'Cancelled'
+    PaymentMethod NVARCHAR(50) DEFAULT 'COD',      -- 'COD', 'VNPay', 'MoMo', 'Banking'
+    PaymentStatus NVARCHAR(30) DEFAULT 'Unpaid',   -- 'Unpaid', 'Paid', 'Refunded'
+    Note NVARCHAR(500) NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETDATE(),
+    CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id) ON DELETE SET NULL,
+    CONSTRAINT FK_Orders_Coupons FOREIGN KEY (CouponId) REFERENCES dbo.Coupons(Id) ON DELETE SET NULL
 );
-GO
+CREATE INDEX IX_Orders_UserId ON dbo.Orders(UserId);
+CREATE INDEX IX_Orders_OrderCode ON dbo.Orders(OrderCode);
 
--- =======================================================================
--- 5. BẢNG ORDER_ITEMS (Chi tiết tựa sách trong đơn hàng)
--- =======================================================================
 CREATE TABLE dbo.OrderItems (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    order_id NVARCHAR(50) NOT NULL,
-    product_id INT NULL,
-    product_name NVARCHAR(255) NOT NULL,
-    price DECIMAL(18,2) NOT NULL,
-    quantity INT NOT NULL DEFAULT 1,
-    selected_color NVARCHAR(50) NULL,
-    image NVARCHAR(500) NULL,
-    CONSTRAINT FK_OrderItems_Orders FOREIGN KEY (order_id) REFERENCES dbo.Orders(id) ON DELETE CASCADE,
-    CONSTRAINT FK_OrderItems_Products FOREIGN KEY (product_id) REFERENCES dbo.Products(id) ON DELETE SET NULL
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    OrderId INT NOT NULL,
+    BookId INT NULL,
+    BookTitle NVARCHAR(255) NOT NULL,
+    UnitPrice DECIMAL(18,2) NOT NULL,
+    Quantity INT NOT NULL,
+    Subtotal DECIMAL(18,2) NOT NULL,
+    CONSTRAINT FK_OrderItems_Orders FOREIGN KEY (OrderId) REFERENCES dbo.Orders(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_OrderItems_Books FOREIGN KEY (BookId) REFERENCES dbo.Books(Id) ON DELETE SET NULL
 );
 GO
 
 -- =======================================================================
--- 6. DỮ LIỆU BAN ĐẦU ĐỒNG BỘ CHO BOOKSTORE (NHÓM 1 - DEVOPS ST23B)
+-- 13. BẢNG REVIEWS (Đánh giá & Nhận xét từ khách hàng)
 -- =======================================================================
-
--- 6.1. Danh mục sách
-INSERT INTO dbo.Categories (name, slug) VALUES 
-(N'Công nghệ & DevOps', 'cong-nghe-devops'),
-(N'Kỹ năng sống', 'ky-nang-song'),
-(N'Kinh tế & Quản trị', 'kinh-te-quan-tri'),
-(N'Văn học & Nghệ thuật', 'van-hoc-nghe-thuat');
-
--- 6.2. Tài khoản: Quản trị viên Nhóm 1 và Khách hàng
-INSERT INTO dbo.Users (id, name, email, password, phone, role, status, created_at, orders_count) VALUES 
-('USR-001', N'Quản trị viên (Admin)', 'admin', 'admin123', '0900 000 001', 'admin', 'active', '01/01/2026', 0),
-('USR-002', N'Đinh Ngọc Thế Nhân (Nhóm 1)', 'thenhan', 'admin123', '0917 714 595', 'admin', 'active', '08/09/2026', 0),
-('USR-003', N'Hoàng Trường Ân (Nhóm 1)', 'truongan', 'admin123', '0901 112 233', 'admin', 'active', '08/09/2026', 0),
-('USR-004', N'Cao Đình Bảo (Nhóm 1)', 'dinhbao', 'admin123', '0902 223 344', 'admin', 'active', '08/09/2026', 0),
-('USR-005', N'Huỳnh Phước Quân (Nhóm 1)', 'phuocquan', 'admin123', '0903 334 455', 'admin', 'active', '08/09/2026', 0),
-('USR-006', N'Nguyễn Hoàng Nam', 'hoangnam@gmail.com', 'kh123', '0912 345 678', 'customer', 'active', '15/05/2026', 2),
-('USR-007', N'Trần Thảo My', 'thaomy.tran@gmail.com', 'kh123', '0988 765 432', 'customer', 'active', '22/07/2026', 1);
-
--- 6.3. Sản phẩm Sách
-INSERT INTO dbo.Products (name, category_id, category, price, original_price, rating, reviews_count, image, tag, description, specs, colors) VALUES
-(
-    N'The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)', 1, N'Công nghệ & DevOps', 168000, 220000, 4.9, 320,
-    'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
-    N'Khuyên đọc',
-    N'Tác phẩm kinh điển gối đầu giường của mọi kỹ sư DevOps và quản lý CNTT thế giới. Cuốn sách kể về hành trình cứu vãn dự án công nghệ bờ vực sụp đổ thông qua phương pháp DevOps, Agile và Lean IT.',
-    N'["Tác giả: Gene Kim, Kevin Behr, George Spafford", "NXB: NXB Thế Giới", "Năm XB: 2023", "Số trang: 440 trang"]',
-    N'["Bìa mềm tiêu chuẩn", "Bìa cứng (Hardcover)", "Bản đặc biệt kèm Bookmark"]'
-),
-(
-    N'The DevOps Handbook - Cẩm Nang Thực Hành DevOps Toàn Tập', 1, N'Công nghệ & DevOps', 215000, 285000, 5.0, 195,
-    'https://images.unsplash.com/photo-1532012164546-f432f2e37272?auto=format&fit=crop&w=800&q=80',
-    N'Bán chạy',
-    N'Cẩm nang toàn diện nhất hướng dẫn cách triển khai CI/CD, tự động hóa hạ tầng (IaC), văn hóa cộng tác Dev-Ops và đảm bảo độ tin cậy hệ thống trong kỷ nguyên điện toán đám mây.',
-    N'["Tác giả: Gene Kim, Jez Humble, Patrick Debois", "NXB: NXB Dân Trí", "Năm XB: 2024", "Số trang: 520 trang"]',
-    N'["Bìa mềm", "Bìa cứng cao cấp"]'
-),
-(
-    N'Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu', 1, N'Công nghệ & DevOps', 195000, 260000, 4.9, 450,
-    'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80',
-    N'Kinh điển',
-    N'Cuốn sách bất hủ giúp mọi lập trình viên nâng tầm tư duy viết code: đặt tên có ý nghĩa, xây dựng hàm ngắn gọn, xử lý lỗi chuẩn mực và giữ kiến trúc mã nguồn luôn trong sáng dễ bảo trì.',
-    N'["Tác giả: Robert C. Martin (Uncle Bob)", "NXB: NXB Thông Tin & Truyền Thông", "Năm XB: 2023", "Số trang: 464 trang"]',
-    N'["Bìa mềm tiêu chuẩn", "Bìa cứng giới hạn"]'
-),
-(
-    N'Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ', 2, N'Kỹ năng sống', 149000, 199000, 4.9, 880,
-    'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80',
-    N'Bán chạy',
-    N'Bí quyết thay đổi cuộc sống qua những thói quen nhỏ mỗi ngày. James Clear chỉ ra 4 quy luật đơn giản giúp bạn kiên trì xây dựng thói quen tốt và dễ dàng loại bỏ thói quen xấu.',
-    N'["Tác giả: James Clear", "NXB: NXB Thế Giới", "Năm XB: 2023", "Số trang: 380 trang"]',
-    N'["Bìa mềm ép kim", "Bản bìa cứng có bookmark"]'
-),
-(
-    N'Đắc Nhân Tâm - Nghệ Thuật Thu Phục Lòng Người', 2, N'Kỹ năng sống', 88000, 120000, 4.8, 1250,
-    'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80',
-    N'Yêu thích',
-    N'Tác phẩm bất hủ về nghệ thuật đối nhân xử thế và giao tiếp chân thành, giúp bạn xây dựng mối quan hệ tốt đẹp với bạn bè, đồng nghiệp và đối tác trong cuộc sống.',
-    N'["Tác giả: Dale Carnegie", "NXB: NXB Tổng Hợp TP.HCM", "Năm XB: 2024", "Số trang: 320 trang"]',
-    N'["Bìa mềm", "Bìa cứng mạ vàng"]'
-),
-(
-    N'Nhà Đầu Tư Thông Minh (The Intelligent Investor)', 3, N'Kinh tế & Quản trị', 235000, 310000, 4.9, 310,
-    'https://images.unsplash.com/photo-1592496431122-2349e0fbc666?auto=format&fit=crop&w=800&q=80',
-    N'Hot Deal',
-    N'Kinh thánh về triết lý đầu tư giá trị của Benjamin Graham - người thầy vĩ đại của tỷ phú Warren Buffett. Cuốn sách định hình tư duy tài chính và quản trị rủi ro vững chắc.',
-    N'["Tác giả: Benjamin Graham", "NXB: NXB Lao Động Xã Hội", "Năm XB: 2023", "Số trang: 640 trang"]',
-    N'["Bìa mềm", "Bìa cứng gáy may"]'
-),
-(
-    N'Khởi Nghiệp Tinh Gọn (The Lean Startup)', 3, N'Kinh tế & Quản trị', 155000, 210000, 4.8, 260,
-    'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80',
-    N'Khuyên đọc',
-    N'Mô hình phát triển sản phẩm đột phá với vòng lặp Build - Measure - Learn giúp startup và doanh nghiệp công nghệ kiểm chứng giả định nhanh chóng với chi phí tối thiểu.',
-    N'["Tác giả: Eric Ries", "NXB: NXB Công Thương", "Năm XB: 2023", "Số trang: 370 trang"]',
-    N'["Bìa mềm", "Bản bìa cứng"]'
-),
-(
-    N'Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm', 4, N'Văn học & Nghệ thuật', 79000, 105000, 4.9, 950,
-    'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80',
-    N'Bán chạy',
-    N'Hành trình vượt sa mạc đi tìm kho báu của chàng chăn cừu Santiago gửi gắm bức thông điệp sâu sắc: Khi bạn thực sự quyết tâm, cả vũ trụ sẽ hợp lực giúp bạn đạt được ước mơ.',
-    N'["Tác giả: Paulo Coelho", "NXB: NXB Hội Nhà Văn", "Năm XB: 2024", "Số trang: 228 trang"]',
-    N'["Bìa mềm kinh điển", "Bìa cứng minh họa"]'
-),
-(
-    N'Cây Cam Ngọt Của Tôi - Ấn Bản Đặc Biệt', 4, N'Văn học & Nghệ thuật', 92000, 125000, 5.0, 780,
-    'https://images.unsplash.com/photo-1476275466078-4007374efbbe?auto=format&fit=crop&w=800&q=80',
-    N'Yêu thích',
-    N'Một trong những cuốn sách văn học Brazil xúc động nhất về tâm hồn trong trẻo, giàu lòng trắc ẩn của cậu bé năm tuổi Zezé và tình bạn ấm áp diệu kỳ.',
-    N'["Tác giả: José Mauro de Vasconcelos", "NXB: NXB Hội Nhà Văn", "Năm XB: 2023", "Số trang: 244 trang"]',
-    N'["Bìa mềm minh họa", "Bản bìa cứng kỷ niệm"]'
-),
-(
-    N'Deep Work - Làm Ra Làm, Chơi Ra Chơi', 2, N'Kỹ năng sống', 135000, 180000, 4.8, 340,
-    'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=800&q=80',
-    N'Ưu đãi SV',
-    N'Chiến lược rèn luyện khả năng tập trung cao độ trong thời đại bùng nổ thông tin và mạng xã hội. Phương pháp làm việc sâu giúp nâng cao chất lượng đầu ra vượt bậc.',
-    N'["Tác giả: Cal Newport", "NXB: NXB Thế Giới", "Năm XB: 2023", "Số trang: 350 trang"]',
-    N'["Bìa mềm", "Bìa cứng"]'
+CREATE TABLE dbo.Reviews (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    UserId NVARCHAR(50) NOT NULL,
+    BookId INT NOT NULL,
+    Rating INT NOT NULL CHECK (Rating BETWEEN 1 AND 5),
+    Comment NVARCHAR(MAX) NULL,
+    IsApproved BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    CONSTRAINT FK_Reviews_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_Reviews_Books FOREIGN KEY (BookId) REFERENCES dbo.Books(Id) ON DELETE CASCADE
 );
-
--- 6.4. Đơn đặt sách mẫu
-INSERT INTO dbo.Orders (id, user_id, customer_name, customer_email, customer_phone, customer_address, total_amount, status, note, created_at) VALUES
-('DH-1001', 'USR-006', N'Nguyễn Hoàng Nam', 'hoangnam@gmail.com', '0912 345 678', N'123 Cầu Giấy, Hà Nội', 317000, 'pending', N'Giao giờ hành chính, gọi trước khi đến', '07/09/2026 14:30'),
-('DH-1002', 'USR-007', N'Trần Thảo My', 'thaomy.tran@gmail.com', '0988 765 432', N'45 Lê Lợi, Quận 1, TP. Hồ Chí Minh', 195000, 'shipping', N'Giao buổi chiều sau 17h', '06/09/2026 09:15'),
-('DH-1003', 'USR-006', N'Nguyễn Hoàng Nam', 'hoangnam@gmail.com', '0912 345 678', N'123 Cầu Giấy, Hà Nội', 79000, 'delivered', N'Để ở quầy lễ tân giúp mình', '05/09/2026 10:00');
-
--- 6.5. Chi tiết các tựa sách trong đơn hàng
-INSERT INTO dbo.OrderItems (order_id, product_id, product_name, price, quantity, selected_color, image) VALUES
-('DH-1001', 1, N'The Phoenix Project - Dự Án Phượng Hoàng (Bản Dịch Tiếng Việt)', 168000, 1, N'Bìa mềm tiêu chuẩn', 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80'),
-('DH-1001', 4, N'Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ', 149000, 1, N'Bìa mềm ép kim', 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80'),
-('DH-1002', 3, N'Clean Code - Nghệ Thuật Viết Code Sạch Sẽ & Tối Ưu', 195000, 1, N'Bìa mềm tiêu chuẩn', 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80'),
-('DH-1003', 8, N'Nhà Giả Kim (The Alchemist) - Ấn Bản Kỷ Niệm', 79000, 1, N'Bìa mềm kinh điển', 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=400&q=80');
+CREATE INDEX IX_Reviews_BookId ON dbo.Reviews(BookId);
 GO
 
--- 7. Kiểm tra dữ liệu hoàn tất
-SELECT COUNT(*) AS UsersCount FROM dbo.Users;
-SELECT COUNT(*) AS ProductsCount FROM dbo.Products;
-SELECT COUNT(*) AS OrdersCount FROM dbo.Orders;
-SELECT COUNT(*) AS OrderItemsCount FROM dbo.OrderItems;
+-- =======================================================================
+-- 14. DỮ LIỆU KHỞI TẠO (SEED DATA)
+-- =======================================================================
+
+-- 14.1. Vai trò Roles
+INSERT INTO dbo.Roles (RoleName) VALUES ('Admin'), ('Staff'), ('Customer');
+
+-- 14.2. Người dùng & Phân quyền Nhóm 1 - DevOps ST23B
+INSERT INTO dbo.Users (Id, FullName, Email, PasswordHash, PhoneNumber) VALUES
+('USR-001', N'Quản trị viên (Admin)', 'admin', 'admin123', '0900000001'),
+('USR-002', N'Đinh Ngọc Thế Nhân (Nhóm trưởng)', 'thenhan', 'admin123', '0917714595'),
+('USR-003', N'Hoàng Trường Ân', 'truongan', 'admin123', '0901112233'),
+('USR-004', N'Cao Đình Bảo', 'dinhbao', 'admin123', '0902223344'),
+('USR-005', N'Huỳnh Phước Quân', 'phuocquan', 'admin123', '0903334455'),
+('USR-006', N'Nguyễn Hoàng Nam', 'hoangnam@gmail.com', 'kh123', '0912345678'),
+('USR-007', N'Trần Thảo My', 'thaomy.tran@gmail.com', 'kh123', '0988765432');
+
+INSERT INTO dbo.UserRoles (UserId, RoleId) VALUES
+('USR-001', 1),
+('USR-002', 1),
+('USR-003', 1),
+('USR-004', 1),
+('USR-005', 1),
+('USR-006', 3),
+('USR-007', 3);
+
+-- 14.3. Thể loại sách Categories (Hỗ trợ cha-con)
+INSERT INTO dbo.Categories (Name, Slug, ParentId) VALUES
+(N'Công nghệ & DevOps', 'cong-nghe-devops', NULL),
+(N'Kỹ năng sống', 'ky-nang-song', NULL),
+(N'Kinh tế & Quản trị', 'kinh-te-quan-tri', NULL),
+(N'Văn học & Nghệ thuật', 'van-hoc-nghe-thuat', NULL);
+
+-- 14.4. Nhà xuất bản Publishers
+INSERT INTO dbo.Publishers (Name, Address, Website) VALUES
+(N'NXB Thế Giới', N'Hà Nội', 'https://thegioipublishers.vn'),
+(N'NXB Dân Trí', N'Hà Nội', 'https://nxbtriduc.com.vn'),
+(N'NXB Thông Tin & Truyền Thông', N'Hà Nội', 'https://nxbthongtintruyenthong.vn'),
+(N'NXB Tổng Hợp TP.HCM', N'TP. Hồ Chí Minh', 'https://nxbhcm.com.vn'),
+(N'NXB Lao Động Xã Hội', N'Hà Nội', 'https://nxblaodong.vn'),
+(N'NXB Hội Nhà Văn', N'Hà Nội', 'https://nxbhoinhavan.vn');
+
+-- 14.5. Tác giả Authors
+INSERT INTO dbo.Authors (Name, Bio) VALUES
+(N'Gene Kim', N'Nhà tiên phong và tác giả hàng đầu thế giới về phong trào DevOps và chuyển đổi số.'),
+(N'Robert C. Martin (Uncle Bob)', N'Huyền thoại kỹ nghệ phần mềm, đồng tác giả Tuyên ngôn Agile và Clean Architecture.'),
+(N'James Clear', N'Chuyên gia tâm lý học hành vi và tác giả cuốn sách Atomic Habits bán chạy toàn cầu.'),
+(N'Dale Carnegie', N'Bậc thầy vĩ đại về nghệ thuật đối nhân xử thế và giao tiếp truyền cảm hứng.'),
+(N'Benjamin Graham', N'Cha đẻ của phương pháp đầu tư giá trị, người thầy huyền thoại của Warren Buffett.'),
+(N'Paulo Coelho', N'Đại văn hào Brazil với tác phẩm Nhà Giả Kim được dịch ra hơn 80 thứ tiếng.');
+
+-- 14.6. Mã giảm giá Coupons
+INSERT INTO dbo.Coupons (Code, DiscountType, DiscountValue, MinOrderAmount, MaxDiscountAmount, UsageLimit, UsedCount, StartDate, EndDate, IsActive) VALUES
+('DEVOPS20', 'Percentage', 20, 200000, 50000, 200, 0, '2026-01-01', '2026-12-31', 1),
+('BOOKSTORE10', 'Percentage', 10, 100000, 30000, 500, 0, '2026-01-01', '2026-12-31', 1),
+('BANMOI50K', 'FixedAmount', 50000, 300000, 50000, 100, 0, '2026-01-01', '2026-12-31', 1);
+
+-- 14.7. Danh mục Sách Books
+INSERT INTO dbo.Books (Title, Slug, ISBN, PublisherId, PublicationYear, Price, DiscountPrice, StockQuantity, Description, CoverImageUrl, PageCount, Weight) VALUES
+(N'The Phoenix Project - Dự Án Phượng Hoàng', 'the-phoenix-project', '978-604-77-8491-1', 1, 2023, 220000, 168000, 45, N'Cuốn tiểu thuyết bất hủ về CNTT, văn hóa DevOps và phương pháp Lean IT giúp cứu nguy tổ chức trong kỷ nguyên số.', 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80', 440, 480),
+(N'The DevOps Handbook - Cẩm Nang Thực Hành DevOps Toàn Tập', 'the-devops-handbook', '978-604-88-9120-5', 2, 2024, 285000, 215000, 30, N'Hướng dẫn chi tiết triển khai CI/CD, tự động hóa hạ tầng IaC, độ tin cậy hệ thống và văn hóa phối hợp giữa Dev và Ops.', 'https://images.unsplash.com/photo-1532012164546-f432f2e37272?auto=format&fit=crop&w=800&q=80', 520, 560),
+(N'Clean Code - Nghệ Thuật Viết Code Sạch Sẽ', 'clean-code', '978-604-80-3211-0', 3, 2023, 260000, 195000, 25, N'Quy chuẩn viết code sạch, dễ đọc, dễ kiểm thử và bảo trì dành cho mọi kỹ sư phần mềm chuyên nghiệp.', 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80', 464, 520),
+(N'Atomic Habits - Thay Đổi Tí Hon, Hiệu Quả Bất Ngờ', 'atomic-habits', '978-604-77-9812-3', 1, 2023, 199000, 149000, 80, N'Bốn quy luật đơn giản giúp xây dựng thói quen tốt bền vững và loại bỏ những thói quen tiêu cực.', 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=800&q=80', 380, 420),
+(N'Đắc Nhân Tâm - Nghệ Thuật Thu Phục Lòng Người', 'dac-nhan-tam', '978-604-58-7124-9', 4, 2024, 120000, 88000, 120, N'Tác phẩm kinh điển thế giới về nghệ thuật kết nối, giao tiếp và truyền cảm hứng trong công việc và cuộc sống.', 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80', 320, 350),
+(N'Nhà Đầu Tư Thông Minh (The Intelligent Investor)', 'the-intelligent-investor', '978-604-59-9921-9', 5, 2023, 310000, 235000, 18, N'Triết lý đầu tư giá trị và kiểm soát cảm xúc tài chính trường tồn của người thầy huyền thoại Benjamin Graham.', 'https://images.unsplash.com/photo-1592496431122-2349e0fbc666?auto=format&fit=crop&w=800&q=80', 640, 680),
+(N'Khởi Nghiệp Tinh Gọn (The Lean Startup)', 'the-lean-startup', '978-604-96-8812-4', 1, 2023, 210000, 155000, 35, N'Phương pháp kiểm chứng nhanh sản phẩm với chu trình Build - Measure - Learn giúp tối ưu hóa chi phí và giảm thiểu rủi ro.', 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=800&q=80', 370, 400),
+(N'Nhà Giả Kim (The Alchemist) - Bản Kỷ Niệm', 'nha-gia-kim', '978-604-53-4819-2', 6, 2024, 105000, 79000, 60, N'Hành trình tìm kiếm kho báu và sứ mệnh cuộc đời: Khi bạn khao khát điều gì, cả vũ trụ sẽ hợp lực giúp bạn.', 'https://images.unsplash.com/photo-1516979187457-637abb4f9353?auto=format&fit=crop&w=800&q=80', 228, 280);
 GO

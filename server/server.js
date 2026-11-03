@@ -1,387 +1,153 @@
+// ==============================================================================
+// ĐIỂM KHỞI ĐỘNG HỆ THỐNG BACKEND (APPLICATION BOOTSTRAPPER)
+// Kiến trúc 3 lớp: Presentation (Controllers) -> Business Logic (Services) -> Data Access (Repositories)
+// Học phần: DevOps ST23B - Nhóm 1 - Đề tài: Online Bookstore
+// ==============================================================================
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { connectDB, User, Product, Order } from './db.js';
+
+// 1. Cấu hình kết nối CSDL & Khởi tạo ban đầu
+import { connectDB } from './config/database.js';
+
+// 2. Middlewares xác thực và phân quyền
+import { authenticate, optionalAuthenticate, requireRoles } from './middlewares/auth.middleware.js';
+import { notFoundHandler, globalErrorHandler } from './middlewares/error.middleware.js';
+
+// 3. Controllers tiếp nhận yêu cầu từ Client
+import { authController } from './controllers/auth.controller.js';
+import { categoryController } from './controllers/category.controller.js';
+import { bookController } from './controllers/book.controller.js';
+import { orderController } from './controllers/order.controller.js';
+import { userRepository } from './repositories/user.repository.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Cấu hình Middleware cơ bản
 app.use(cors());
 app.use(express.json());
 
-// Kết nối cơ sở dữ liệu MongoDB
+// Kết nối cơ sở dữ liệu MongoDB và Seed dữ liệu nếu cần
 connectDB().catch((err) => {
-  console.error('Không thể kết nối ban đầu tới MongoDB:', err.message);
+  console.error('❌ Không thể kết nối ban đầu tới MongoDB BookStore:', err.message);
 });
 
-// 1. Kiểm tra trạng thái Server & Database BookStore
+// ==============================================================================
+// ROUTE 1: HEALTH CHECK & TRẠNG THÁI HỆ THỐNG
+// ==============================================================================
 app.get('/api/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'OK',
-    message: 'Server BookStore và MongoDB kết nối bình thường!',
-    db: 'Connected',
+    message: 'Backend Online Bookstore hoạt động bình thường theo chuẩn kiến trúc 3 lớp!',
+    database: 'MongoDB Connected',
+    timestamp: new Date().toISOString(),
   });
 });
 
-// 2. Lấy danh sách sản phẩm từ MongoDB
-app.get('/api/products', async (req, res) => {
+// ==============================================================================
+// ROUTE 2: AUTHENTICATION MODULE (XÁC THỰC NGƯỜI DÙNG)
+// ==============================================================================
+// Đăng ký tài khoản khách hàng mới
+app.post('/api/auth/register', (req, res, next) => authController.register(req, res, next));
+// Đăng nhập hệ thống (Sinh JWT Token chứa UserId & Role)
+app.post('/api/auth/login', (req, res, next) => authController.login(req, res, next));
+// Lấy thông tin tài khoản đang đăng nhập (Bảo vệ bởi JWT)
+app.get('/api/auth/me', authenticate, (req, res, next) => authController.getProfile(req, res, next));
+
+// ==============================================================================
+// ROUTE 3: CATEGORIES MODULE (QUẢN LÝ THỂ LOẠI SÁCH)
+// ==============================================================================
+// Xem danh sách toàn bộ danh mục (Công khai)
+app.get('/api/categories', (req, res, next) => categoryController.getAll(req, res, next));
+// Xem chi tiết danh mục theo ID (Công khai)
+app.get('/api/categories/:id', (req, res, next) => categoryController.getById(req, res, next));
+// Thêm danh mục mới (Chỉ dành cho Admin)
+app.post('/api/categories', authenticate, requireRoles('Admin'), (req, res, next) => categoryController.create(req, res, next));
+// Cập nhật danh mục (Chỉ dành cho Admin)
+app.put('/api/categories/:id', authenticate, requireRoles('Admin'), (req, res, next) => categoryController.update(req, res, next));
+// Xóa danh mục (Chỉ dành cho Admin)
+app.delete('/api/categories/:id', authenticate, requireRoles('Admin'), (req, res, next) => categoryController.delete(req, res, next));
+
+// ==============================================================================
+// ROUTE 4: BOOKS & PRODUCTS MODULE (QUẢN LÝ SÁCH & SẢN PHẨM)
+// Hỗ trợ đồng thời cả /api/books và /api/products để tương thích 100% với Frontend React
+// ==============================================================================
+// Lấy danh sách sách có phân trang Paging, lọc Category và tìm kiếm theo tên
+app.get('/api/books', (req, res, next) => bookController.getPaged(req, res, next));
+app.get('/api/products', (req, res, next) => bookController.getPaged(req, res, next));
+
+// Xem chi tiết một cuốn sách theo ID
+app.get('/api/books/:id', (req, res, next) => bookController.getById(req, res, next));
+app.get('/api/products/:id', (req, res, next) => bookController.getById(req, res, next));
+
+// Thêm mới sách (Chỉ dành cho Admin)
+app.post('/api/books', authenticate, requireRoles('Admin'), (req, res, next) => bookController.create(req, res, next));
+app.post('/api/products', authenticate, requireRoles('Admin'), (req, res, next) => bookController.create(req, res, next));
+
+// Cập nhật thông tin sách (Chỉ dành cho Admin)
+app.put('/api/books/:id', authenticate, requireRoles('Admin'), (req, res, next) => bookController.update(req, res, next));
+app.put('/api/products/:id', authenticate, requireRoles('Admin'), (req, res, next) => bookController.update(req, res, next));
+
+// Xóa cuốn sách khỏi hệ thống (Chỉ dành cho Admin)
+app.delete('/api/books/:id', authenticate, requireRoles('Admin'), (req, res, next) => bookController.delete(req, res, next));
+app.delete('/api/products/:id', authenticate, requireRoles('Admin'), (req, res, next) => bookController.delete(req, res, next));
+
+// ==============================================================================
+// ROUTE 5: CHECKOUT & ORDERS MODULE (ĐƠN HÀNG VỚI DATABASE TRANSACTION)
+// ==============================================================================
+// Tạo đơn hàng Checkout với Database Transaction đảm bảo ACID (Khóa tồn kho, Tính giá từ DB)
+app.post('/api/orders', optionalAuthenticate, (req, res, next) => orderController.checkout(req, res, next));
+app.post('/api/orders/checkout', optionalAuthenticate, (req, res, next) => orderController.checkout(req, res, next));
+
+// Khách hàng xem lịch sử đơn hàng của chính mình (Bảo vệ bởi JWT)
+app.get('/api/orders/my-orders', authenticate, (req, res, next) => orderController.getMyOrders(req, res, next));
+
+// Quản trị viên Admin xem toàn bộ danh sách đơn hàng trong hệ thống
+app.get('/api/orders', authenticate, requireRoles('Admin'), (req, res, next) => orderController.getAllOrders(req, res, next));
+
+// Xem chi tiết một đơn hàng theo ID
+app.get('/api/orders/:id', authenticate, (req, res, next) => orderController.getById(req, res, next));
+
+// Cập nhật trạng thái đơn hàng (Chỉ dành cho Admin)
+app.put('/api/orders/:id/status', authenticate, requireRoles('Admin'), (req, res, next) => orderController.updateStatus(req, res, next));
+app.patch('/api/orders/:id/status', authenticate, requireRoles('Admin'), (req, res, next) => orderController.updateStatus(req, res, next));
+
+// ==============================================================================
+// ROUTE 6: USERS MANAGEMENT (DÀNH CHO ADMIN QUẢN TRỊ NGƯỜI DÙNG)
+// ==============================================================================
+app.get('/api/users', authenticate, requireRoles('Admin'), async (req, res, next) => {
   try {
-    const products = await Product.find().sort({ id: 1 }).lean();
-    res.json({ success: true, data: products });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    const users = await userRepository.findAll();
+    res.status(200).json(users);
+  } catch (error) {
+    next(error);
   }
 });
 
-// 2.1. Thêm sản phẩm mới vào MongoDB
-app.post('/api/products', async (req, res) => {
+app.put('/api/users/:id', authenticate, requireRoles('Admin'), async (req, res, next) => {
   try {
-    const {
-      id,
-      name,
-      category,
-      price,
-      originalPrice,
-      rating,
-      reviewsCount,
-      image,
-      tag,
-      description,
-      specs,
-      colors,
-    } = req.body || {};
-
-    let prodId = id;
-    if (!prodId) {
-      const maxProd = await Product.findOne().sort({ id: -1 }).lean();
-      prodId = maxProd ? maxProd.id + 1 : 1;
-    }
-
-    const newProduct = await Product.create({
-      id: Number(prodId),
-      name,
-      category: category || 'Sách tổng hợp',
-      price: Number(price),
-      originalPrice: Number(originalPrice || price),
-      rating: Number(rating) || 5.0,
-      reviewsCount: Number(reviewsCount) || 0,
-      image:
-        image ||
-        'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80',
-      tag: tag || null,
-      description: description || name,
-      specs: Array.isArray(specs) ? specs : [],
-      colors: Array.isArray(colors) ? colors : [],
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Thêm sách vào MongoDB thành công!',
-      data: newProduct,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    const updated = await userRepository.update(req.params.id, req.body);
+    res.status(200).json({ success: true, user: updated });
+  } catch (error) {
+    next(error);
   }
 });
 
-// 2.2. Cập nhật sản phẩm trong MongoDB
-app.put('/api/products/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  try {
-    const {
-      name,
-      category,
-      price,
-      originalPrice,
-      rating,
-      reviewsCount,
-      image,
-      tag,
-      description,
-      specs,
-      colors,
-    } = req.body || {};
-    const updateData = {};
-    if (name !== undefined) updateData.name = name;
-    if (category !== undefined) updateData.category = category;
-    if (price !== undefined) updateData.price = Number(price);
-    if (originalPrice !== undefined) updateData.originalPrice = Number(originalPrice);
-    if (rating !== undefined) updateData.rating = Number(rating);
-    if (reviewsCount !== undefined) updateData.reviewsCount = Number(reviewsCount);
-    if (image !== undefined) updateData.image = image;
-    if (tag !== undefined) updateData.tag = tag;
-    if (description !== undefined) updateData.description = description;
-    if (specs !== undefined) updateData.specs = Array.isArray(specs) ? specs : [];
-    if (colors !== undefined) updateData.colors = Array.isArray(colors) ? colors : [];
+// ==============================================================================
+// MIDDLEWARE XỬ LÝ LỖI CUỐI CÙNG
+// ==============================================================================
+app.use(notFoundHandler);
+app.use(globalErrorHandler);
 
-    const updated = await Product.findOneAndUpdate(
-      { id },
-      { $set: updateData },
-      { new: true }
-    );
+// Khởi chạy máy chủ HTTP
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Máy chủ Backend Online Bookstore đang chạy tại: http://localhost:${PORT}`);
+    console.log(`📋 Kiến trúc 3 lớp đã được nạp thành công: Controllers -> Services -> Repositories`);
+  });
+}
 
-    res.json({
-      success: true,
-      message: 'Cập nhật thông tin sách thành công!',
-      data: updated,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 2.3. Xóa sản phẩm khỏi MongoDB
-app.delete('/api/products/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  try {
-    await Product.findOneAndDelete({ id });
-    res.json({ success: true, message: 'Đã xóa cuốn sách khỏi Database!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 3. Lấy danh sách người dùng từ MongoDB
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find().sort({ id: 1 }).lean();
-    res.json({ success: true, data: users });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 4. Thêm người dùng mới vào MongoDB
-app.post('/api/users', async (req, res) => {
-  const { id, name, email, password, phone, role, status, createdAt } = req.body || {};
-  try {
-    const cleanEmail = (email || '').trim();
-    if (!cleanEmail) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email không được để trống!',
-      });
-    }
-
-    const existingEmail = await User.findOne({ email: new RegExp(`^${cleanEmail}$`, 'i') });
-    if (existingEmail) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email này đã tồn tại trong hệ thống, vui lòng chọn email khác!',
-      });
-    }
-
-    const cleanPhone = (phone || '').trim();
-    if (cleanPhone) {
-      const existingPhone = await User.findOne({ phone: cleanPhone });
-      if (existingPhone) {
-        return res.status(400).json({
-          success: false,
-          message: 'Số điện thoại này đã được sử dụng bởi người dùng khác!',
-        });
-      }
-    }
-
-    const newUser = await User.create({
-      id,
-      name,
-      email: cleanEmail.toLowerCase(),
-      password: password || 'kh123',
-      phone: cleanPhone || null,
-      role: role || 'customer',
-      status: status || 'active',
-      createdAt: createdAt || new Date().toLocaleDateString('vi-VN'),
-      ordersCount: 0,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Thêm người dùng vào Database thành công!',
-      data: newUser,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 5. Cập nhật thông tin / trạng thái người dùng
-app.put('/api/users/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, email, password, phone, role, status } = req.body || {};
-  try {
-    const updateData = {};
-    if (name !== undefined) updateData.name = name;
-
-    if (email !== undefined) {
-      const cleanEmail = email.trim();
-      const existingEmail = await User.findOne({
-        id: { $ne: id },
-        email: new RegExp(`^${cleanEmail}$`, 'i'),
-      });
-      if (existingEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email này đã được sử dụng bởi người dùng khác!',
-        });
-      }
-      updateData.email = cleanEmail.toLowerCase();
-    }
-
-    if (password !== undefined) updateData.password = password;
-
-    if (phone !== undefined) {
-      const cleanPhone = (phone || '').trim();
-      if (cleanPhone) {
-        const existingPhone = await User.findOne({
-          id: { $ne: id },
-          phone: cleanPhone,
-        });
-        if (existingPhone) {
-          return res.status(400).json({
-            success: false,
-            message: 'Số điện thoại này đã được sử dụng bởi người dùng khác!',
-          });
-        }
-        updateData.phone = cleanPhone;
-      } else {
-        updateData.phone = null;
-      }
-    }
-
-    if (role !== undefined) updateData.role = role;
-    if (status !== undefined) updateData.status = status;
-
-    await User.findOneAndUpdate({ id }, { $set: updateData });
-    res.json({ success: true, message: 'Cập nhật người dùng thành công!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 6. Xóa người dùng khỏi MongoDB
-app.delete('/api/users/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const user = await User.findOne({ id });
-    if (user) {
-      await User.findOneAndDelete({ id });
-      // Tự động xóa tất cả các đơn hàng thuộc về người dùng này
-      await Order.deleteMany({
-        $or: [
-          { userId: id },
-          { customerEmail: new RegExp(`^${user.email}$`, 'i') },
-        ],
-      });
-    }
-    res.json({
-      success: true,
-      message: 'Đã xóa người dùng và toàn bộ đơn hàng liên quan khỏi Database!',
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 7. Lấy danh sách đơn hàng kèm chi tiết mặt hàng
-app.get('/api/orders', async (req, res) => {
-  try {
-    const orders = await Order.find().sort({ _id: -1 }).lean();
-    res.json({ success: true, data: orders });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 8. Tạo đơn hàng mới & lưu vào MongoDB
-app.post('/api/orders', async (req, res) => {
-  const {
-    id,
-    userId,
-    customerName,
-    customerEmail,
-    customerPhone,
-    customerAddress,
-    totalAmount,
-    items,
-    note,
-    createdAt,
-  } = req.body;
-
-  const orderId = id || `DH-${Date.now().toString().slice(-4)}`;
-
-  try {
-    const newOrder = await Order.create({
-      id: orderId,
-      userId: userId || null,
-      customerName,
-      customerEmail,
-      customerPhone: customerPhone || 'Chưa cung cấp',
-      customerAddress: customerAddress || 'Giao toàn quốc',
-      totalAmount,
-      status: 'pending',
-      note: note || null,
-      createdAt:
-        createdAt ||
-        new Date().toLocaleDateString('vi-VN') +
-          ' ' +
-          new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      items: Array.isArray(items) ? items : [],
-    });
-
-    // Tăng số đơn hàng của khách hàng nếu có tài khoản
-    await User.findOneAndUpdate(
-      { email: new RegExp(`^${customerEmail}$`, 'i') },
-      { $inc: { ordersCount: 1 } }
-    );
-
-    res.status(201).json({
-      success: true,
-      message: 'Tạo đơn hàng thành công!',
-      orderId,
-      data: newOrder,
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 9. Cập nhật trạng thái đơn hàng (Admin duyệt đơn)
-app.patch('/api/orders/:id/status', async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-  try {
-    await Order.findOneAndUpdate({ id }, { status });
-    res.json({ success: true, message: 'Đã cập nhật trạng thái đơn hàng!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 10. Xóa đơn hàng khỏi MongoDB
-app.delete('/api/orders/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const order = await Order.findOne({ id });
-    if (order) {
-      await Order.findOneAndDelete({ id });
-      if (order.customerEmail) {
-        await User.findOneAndUpdate(
-          {
-            email: new RegExp(`^${order.customerEmail}$`, 'i'),
-            ordersCount: { $gt: 0 },
-          },
-          { $inc: { ordersCount: -1 } }
-        );
-      }
-    }
-    res.json({ success: true, message: 'Đã xóa đơn hàng khỏi Database!' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server backend BookStore đang chạy tại http://localhost:${PORT}`);
-});
+export default app;

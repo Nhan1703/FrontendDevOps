@@ -44,11 +44,22 @@ import {
   BookOpen,
   BookMarked,
   Library,
+  Star,
+  TrendingUp,
+  BarChart3,
+  Ticket,
+  Percent,
+  AlertTriangle,
+  Bookmark,
+  Filter,
+  ArrowUpDown,
+  CreditCard,
 } from "lucide-react";
 
 export interface Product {
   id: number;
   name: string;
+  title?: string;
   category: string;
   price: number;
   originalPrice: number;
@@ -59,6 +70,38 @@ export interface Product {
   description: string;
   specs: string[];
   colors: string[];
+  author?: string;
+  publisher?: string;
+  isbn?: string;
+  publicationYear?: number;
+  stockQuantity?: number;
+  pageCount?: number;
+  weight?: number;
+}
+
+export interface CouponItem {
+  id: string;
+  code: string;
+  discountType: "Percentage" | "FixedAmount";
+  discountValue: number;
+  minOrderAmount: number;
+  maxDiscountAmount?: number;
+  usageLimit: number;
+  usedCount: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+
+export interface BookReview {
+  id: string;
+  bookId: number;
+  userName: string;
+  userEmail?: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  isApproved: boolean;
 }
 
 export interface CartItem extends Product {
@@ -167,6 +210,10 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   note?: string;
+  couponCode?: string;
+  discountAmount?: number;
+  shippingFee?: number;
+  paymentMethod?: "COD" | "Banking";
 }
 
 export interface AppUser {
@@ -481,7 +528,95 @@ const DEFAULT_BOOK_ORDERS: Order[] = [
   },
 ];
 
+const DEFAULT_COUPONS: CouponItem[] = [
+  {
+    id: "CP-1",
+    code: "DEVOPS20",
+    discountType: "Percentage",
+    discountValue: 20,
+    minOrderAmount: 200000,
+    maxDiscountAmount: 100000,
+    usageLimit: 200,
+    usedCount: 45,
+    startDate: "01/01/2026",
+    endDate: "31/12/2026",
+    isActive: true,
+  },
+  {
+    id: "CP-2",
+    code: "BOOKSTORE10",
+    discountType: "Percentage",
+    discountValue: 10,
+    minOrderAmount: 100000,
+    maxDiscountAmount: 50000,
+    usageLimit: 500,
+    usedCount: 112,
+    startDate: "01/01/2026",
+    endDate: "31/12/2026",
+    isActive: true,
+  },
+  {
+    id: "CP-3",
+    code: "BANMOI50K",
+    discountType: "FixedAmount",
+    discountValue: 50000,
+    minOrderAmount: 250000,
+    usageLimit: 100,
+    usedCount: 28,
+    startDate: "01/01/2026",
+    endDate: "31/12/2026",
+    isActive: true,
+  },
+];
 
+const DEFAULT_REVIEWS: Record<number, BookReview[]> = {
+  1: [
+    {
+      id: "rev-1",
+      bookId: 1,
+      userName: "Hoàng Trường Ân",
+      userEmail: "an.ht@devops.st23b",
+      rating: 5,
+      comment: "Cuốn sách tuyệt vời nhất về quy trình DevOps và văn hóa hợp tác trong kỹ nghệ phần mềm! Nhóm 1 DevOps ST23B khuyên đọc.",
+      createdAt: "15/09/2026",
+      isApproved: true,
+    },
+    {
+      id: "rev-2",
+      bookId: 1,
+      userName: "Cao Đình Bảo",
+      userEmail: "bao.cd@devops.st23b",
+      rating: 5,
+      comment: "Đọc rất lôi cuốn, giải thích nguyên lý Ba Lối Đi (The Three Ways) cực kỳ trực quan và thực chiến.",
+      createdAt: "18/09/2026",
+      isApproved: true,
+    },
+  ],
+  2: [
+    {
+      id: "rev-3",
+      bookId: 2,
+      userName: "Đinh Ngọc Thế Nhân",
+      userEmail: "nhan.dnt@devops.st23b",
+      rating: 5,
+      comment: "Cẩm nang hướng dẫn CI/CD và hạ tầng đám mây không thể thiếu khi triển khai Docker/Kubernetes trên AWS.",
+      createdAt: "20/09/2026",
+      isApproved: true,
+    },
+  ],
+  3: [
+    {
+      id: "rev-4",
+      bookId: 3,
+      userName: "Huỳnh Phước Quân",
+      userEmail: "quan.hp@devops.st23b",
+      rating: 5,
+      comment: "Clean Code là nền tảng để viết mã nguồn dễ bảo trì, test tự động và refactor an toàn.",
+      createdAt: "22/09/2026",
+      isApproved: true,
+    },
+  ],
+};
 
 export default function App() {
   // Navigation view synced with URL pathname (e.g. /admin)
