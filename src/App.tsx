@@ -54,6 +54,7 @@ import {
   Filter,
   ArrowUpDown,
   CreditCard,
+  Heart,
 } from "lucide-react";
 
 export interface Product {
@@ -78,6 +79,35 @@ export interface Product {
   pageCount?: number;
   weight?: number;
 }
+
+// Hàm chuẩn hóa dữ liệu sản phẩm, tránh lỗi crash màn hình trắng khi thiếu specs/colors
+export const normalizeProduct = (p: any): Product => {
+  const colors =
+    Array.isArray(p.colors) && p.colors.length > 0
+      ? p.colors
+      : ["Bìa mềm tiêu chuẩn", "Bìa cứng (Hardcover)"];
+  const specs =
+    Array.isArray(p.specs) && p.specs.length > 0
+      ? p.specs
+      : [
+          `Tác giả: ${p.author || "Nhiều tác giả"}`,
+          `Thể loại: ${p.category || "Sách tham khảo"}`,
+          `Tồn kho: ${p.stockQuantity ?? 50} cuốn`,
+          `Mã ISBN: ${p.isbn || "978-604-0012"}`,
+          "Hình thức: In chất lượng cao, kèm Bookmark",
+        ];
+  return {
+    ...p,
+    name: p.name || p.title || "Tác phẩm chọn lọc",
+    price: Number(p.price) || 0,
+    originalPrice:
+      Number(p.originalPrice) || Math.round((Number(p.price) || 100000) * 1.25),
+    rating: Number(p.rating) || 5.0,
+    reviewsCount: Number(p.reviewsCount) || 100,
+    colors,
+    specs,
+  };
+};
 
 export interface CouponItem {
   id: string;
@@ -685,13 +715,15 @@ export default function App() {
         try {
           const parsed = JSON.parse(saved);
           const isOldCache = parsed.length <= 10 || parsed.some((p: any) => p.category === "Công nghệ & DevOps");
-          if (Array.isArray(parsed) && parsed.length > 0 && !isOldCache) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0 && !isOldCache) {
+            return parsed.map(normalizeProduct);
+          }
         } catch (e) {
           console.error("Error loading products from localStorage", e);
         }
       }
     }
-    return DEFAULT_BOOKS;
+    return DEFAULT_BOOKS.map(normalizeProduct);
   });
 
   // Save to localStorage on change
@@ -713,6 +745,56 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // ================= WISHLIST (SẢN PHẨM YÊU THÍCH) =================
+  const [wishlist, setWishlist] = useState<number[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("bookstore_wishlist");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {
+          console.error("Lỗi khi tải danh sách yêu thích từ localStorage:", e);
+        }
+      }
+    }
+    return [];
+  });
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+
+  // Lưu danh sách yêu thích vào localStorage
+  useEffect(() => {
+    localStorage.setItem("bookstore_wishlist", JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  // Kiểm tra một cuốn sách có nằm trong danh sách yêu thích không
+  const isInWishlist = (productId: number) => wishlist.includes(productId);
+
+  // Thêm hoặc gỡ bỏ sản phẩm khỏi danh sách yêu thích
+  const toggleWishlist = (productId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const prod = products.find((p) => p.id === productId);
+    const prodName = prod ? prod.name : "Sách";
+    setWishlist((prev) => {
+      const exists = prev.includes(productId);
+      if (exists) {
+        showToast(`Đã xóa "${prodName}" khỏi danh sách yêu thích!`);
+        return prev.filter((id) => id !== productId);
+      } else {
+        showToast(`Đã thêm "${prodName}" vào danh sách yêu thích! ❤️`);
+        return [...prev, productId];
+      }
+    });
+  };
+
+  // Xóa toàn bộ sản phẩm yêu thích
+  const clearWishlist = () => {
+    if (wishlist.length === 0) return;
+    setWishlist([]);
+    showToast("Đã làm trống danh sách sản phẩm yêu thích!");
+  };
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [modalQuantity, setModalQuantity] = useState<number>(1);
@@ -799,8 +881,9 @@ export default function App() {
       .then((data) => {
         const list = (data && data.data) || (data && data.products) || (data && data.books) || (Array.isArray(data) ? data : null);
         if (Array.isArray(list) && list.length > 0) {
-          setProducts(list);
-          localStorage.setItem("bookstore_products", JSON.stringify(list));
+          const normalized = list.map(normalizeProduct);
+          setProducts(normalized);
+          localStorage.setItem("bookstore_products", JSON.stringify(normalized));
         }
       })
       .catch((err) => console.error("Error loading products from DB:", err));
@@ -1218,17 +1301,40 @@ export default function App() {
     showToast("Đã đăng xuất tài khoản.");
   };
 
-  // Mở popup chi tiết sản phẩm
+  // Mở popup chi tiết sản phẩm (Xử lý an toàn tuyệt đối tránh lỗi trắng màn hình)
   const handleOpenDetail = (product: Product) => {
-    setSelectedProduct(product);
-    setSelectedColor(product.colors[0] || "Mặc định");
+    const validColors =
+      Array.isArray(product.colors) && product.colors.length > 0
+        ? product.colors
+        : ["Bìa mềm tiêu chuẩn", "Bìa cứng (Hardcover)"];
+    const validSpecs =
+      Array.isArray(product.specs) && product.specs.length > 0
+        ? product.specs
+        : [
+            `Tác giả: ${product.author || "Nhiều tác giả"}`,
+            `Thể loại: ${product.category || "Sách tham khảo"}`,
+            `Tồn kho: ${product.stockQuantity ?? 50} cuốn`,
+            `Mã ISBN: ${product.isbn || "978-604-0012"}`,
+            "Hình thức: In chất lượng cao, kèm Bookmark",
+          ];
+
+    setSelectedProduct({
+      ...product,
+      colors: validColors,
+      specs: validSpecs,
+    });
+    setSelectedColor(validColors[0] || "Bìa mềm tiêu chuẩn");
     setModalQuantity(1);
   };
 
-  // Thêm nhanh vào giỏ từ card
+  // Thêm nhanh vào giỏ từ card (xử lý màu sắc mặc định an toàn)
   const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
-    addToCart(product, product.colors[0] || "Mặc định", 1);
+    const defaultColor =
+      Array.isArray(product.colors) && product.colors.length > 0
+        ? product.colors[0]
+        : "Bìa mềm tiêu chuẩn";
+    addToCart(product, defaultColor, 1);
   };
 
   // Thêm vào giỏ hàng
@@ -1271,17 +1377,26 @@ export default function App() {
     );
   };
 
-  // Lọc sản phẩm hiển thị ngoài Store
+  // Lọc sản phẩm hiển thị ngoài Store (bao gồm lọc theo Yêu thích và tìm kiếm)
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const matchCat =
-        selectedCategory === "Tất cả" || p.category === selectedCategory;
+      let matchCat = false;
+      if (selectedCategory === "Tất cả") {
+        matchCat = true;
+      } else if (selectedCategory === "Yêu thích") {
+        matchCat = wishlist.includes(p.id);
+      } else {
+        matchCat = p.category === selectedCategory;
+      }
+
       const matchSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase());
+        p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        Boolean(p.author && p.author.toLowerCase().includes(searchQuery.toLowerCase()));
+
       return matchCat && matchSearch;
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [products, selectedCategory, searchQuery, wishlist]);
 
   // Phân trang Store: 8 sản phẩm / trang
   const storeTotalPages = Math.ceil(filteredProducts.length / STORE_ITEMS_PER_PAGE) || 1;
@@ -1292,7 +1407,7 @@ export default function App() {
 
   useEffect(() => {
     setStorePage(1);
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, wishlist]);
 
   // Lọc sản phẩm trong Admin
   const adminFilteredProducts = useMemo(() => {
@@ -1381,7 +1496,9 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.data)) {
-          setProducts(data.data);
+          const normalized = data.data.map(normalizeProduct);
+          setProducts(normalized);
+          localStorage.setItem("bookstore_products", JSON.stringify(normalized));
           showToast("Đã tải lại danh sách sản phẩm từ cơ sở dữ liệu!");
         }
       })
@@ -3813,6 +3930,15 @@ export default function App() {
                       <Package className="w-3.5 h-3.5" /> Đơn hàng của tôi
                     </button>
                     <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsWishlistOpen(true);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Sách yêu thích ({wishlist.length})
+                    </button>
+                    <button
                       onClick={handleCustomerLogout}
                       className="w-full px-3.5 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                     >
@@ -3834,10 +3960,29 @@ export default function App() {
               </button>
             )}
 
+            {/* Wishlist Button (Sản phẩm yêu thích) */}
+            <button
+              onClick={() => setIsWishlistOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all relative cursor-pointer"
+              title="Danh sách sách yêu thích"
+            >
+              <Heart
+                className={`w-4 h-4 transition-colors ${
+                  wishlist.length > 0 ? "fill-rose-500 text-rose-500" : "text-neutral-700"
+                }`}
+              />
+              <span className="hidden md:inline">Yêu thích</span>
+              {wishlist.length > 0 && (
+                <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-4 text-center">
+                  {wishlist.length}
+                </span>
+              )}
+            </button>
+
             {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all relative"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all relative cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
               <span className="hidden md:inline">Giỏ hàng</span>
@@ -3892,21 +4037,44 @@ export default function App() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   selectedCategory === cat
-                    ? "bg-neutral-900 text-white shadow-sm"
+                    ? "bg-neutral-900 text-white shadow-sm font-semibold"
                     : "bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200/80"
                 }`}
               >
                 {cat}
               </button>
             ))}
+
+            {/* Pill Yêu thích với biểu tượng trái tim */}
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("Yêu thích")}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedCategory === "Yêu thích"
+                  ? "bg-rose-500 text-white shadow-sm"
+                  : "bg-white text-rose-600 hover:bg-rose-50 border border-rose-200"
+              }`}
+            >
+              <Heart
+                className={`w-3.5 h-3.5 ${
+                  selectedCategory === "Yêu thích" || wishlist.length > 0
+                    ? "fill-rose-500 text-rose-500"
+                    : "text-rose-400"
+                }`}
+              />
+              <span>Yêu thích ({wishlist.length})</span>
+            </button>
           </div>
 
           {/* Product List Header */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider">
-              {selectedCategory} ({filteredProducts.length})
+            <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-2">
+              {selectedCategory === "Yêu thích" && (
+                <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+              )}
+              <span>{selectedCategory} ({filteredProducts.length})</span>
             </h2>
             <span className="text-[11px] text-neutral-400 italic">
               *Bấm vào sản phẩm để xem chi tiết thông số
@@ -3916,18 +4084,40 @@ export default function App() {
           {/* Products Grid */}
           {filteredProducts.length === 0 ? (
             <div className="bg-white rounded-xl p-12 text-center border border-neutral-200">
-              <p className="text-xs text-neutral-500 mb-2">
-                Không tìm thấy sản phẩm nào khớp với tìm kiếm &ldquo;{searchQuery}&rdquo;.
-              </p>
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("Tất cả");
-                }}
-                className="text-xs font-semibold text-neutral-900 underline"
-              >
-                Xem toàn bộ sản phẩm
-              </button>
+              {selectedCategory === "Yêu thích" ? (
+                <div>
+                  <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3">
+                    <Heart className="w-6 h-6 fill-rose-500" />
+                  </div>
+                  <h3 className="text-sm font-bold text-neutral-800 mb-1">
+                    Danh sách yêu thích của bạn đang trống
+                  </h3>
+                  <p className="text-xs text-neutral-500 mb-4 max-w-sm mx-auto">
+                    Bạn chưa lưu cuốn sách nào vào mục yêu thích. Hãy bấm vào biểu tượng trái tim trên các cuốn sách để lưu lại nhé!
+                  </p>
+                  <button
+                    onClick={() => setSelectedCategory("Tất cả")}
+                    className="px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-semibold hover:bg-neutral-800 transition-colors cursor-pointer"
+                  >
+                    Khám phá toàn bộ sách
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-neutral-500 mb-2">
+                    Không tìm thấy sản phẩm nào khớp với tìm kiếm &ldquo;{searchQuery}&rdquo;.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory("Tất cả");
+                    }}
+                    className="text-xs font-semibold text-neutral-900 underline cursor-pointer"
+                  >
+                    Xem toàn bộ sản phẩm
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -3941,10 +4131,29 @@ export default function App() {
                     {/* Image Box */}
                     <div className="relative h-44 sm:h-48 w-full bg-neutral-100 overflow-hidden">
                       {product.tag && (
-                        <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-900 text-white">
+                        <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-900 text-white shadow-xs">
                           {product.tag}
                         </span>
                       )}
+
+                      {/* Nút yêu thích sản phẩm */}
+                      <button
+                        type="button"
+                        onClick={(e) => toggleWishlist(product.id, e)}
+                        className={`absolute top-2 right-2 z-10 p-1.5 rounded-full backdrop-blur-sm transition-all duration-200 cursor-pointer shadow-sm hover:scale-110 active:scale-95 ${
+                          isInWishlist(product.id)
+                            ? "bg-rose-50 text-rose-500 hover:bg-rose-100"
+                            : "bg-white/80 text-neutral-400 hover:text-rose-500 hover:bg-white"
+                        }`}
+                        title={isInWishlist(product.id) ? "Bỏ yêu thích" : "Lưu vào yêu thích"}
+                      >
+                        <Heart
+                          className={`w-4 h-4 transition-colors ${
+                            isInWishlist(product.id) ? "fill-rose-500 text-rose-500" : ""
+                          }`}
+                        />
+                      </button>
+
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={product.image}
@@ -3961,9 +4170,14 @@ export default function App() {
                     {/* Content */}
                     <div className="p-3.5 flex-1 flex flex-col justify-between">
                       <div>
-                        {/* Category */}
-                        <div className="text-[10px] text-neutral-400 mb-1 font-medium">
-                          {product.category}
+                        {/* Category & Author */}
+                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1 font-medium">
+                          <span>{product.category}</span>
+                          {product.author && (
+                            <span className="truncate max-w-[110px] text-neutral-500">
+                              {product.author}
+                            </span>
+                          )}
                         </div>
 
                         {/* Title */}
@@ -4336,10 +4550,28 @@ export default function App() {
                 className="w-full h-full object-cover"
               />
               {selectedProduct.tag && (
-                <span className="absolute top-3 left-3 px-2.5 py-1 rounded text-[10px] font-bold bg-neutral-900 text-white">
+                <span className="absolute top-3 left-3 px-2.5 py-1 rounded text-[10px] font-bold bg-neutral-900 text-white shadow-xs">
                   {selectedProduct.tag}
                 </span>
               )}
+
+              {/* Nút yêu thích trực tiếp trên ảnh chi tiết */}
+              <button
+                type="button"
+                onClick={() => toggleWishlist(selectedProduct.id)}
+                className={`absolute top-3 right-12 z-10 p-2 rounded-full backdrop-blur-md transition-all duration-200 cursor-pointer shadow-sm hover:scale-110 active:scale-95 ${
+                  isInWishlist(selectedProduct.id)
+                    ? "bg-rose-50 text-rose-500"
+                    : "bg-white/80 text-neutral-400 hover:text-rose-500 hover:bg-white"
+                }`}
+                title={isInWishlist(selectedProduct.id) ? "Bỏ yêu thích" : "Lưu vào yêu thích"}
+              >
+                <Heart
+                  className={`w-4 h-4 transition-colors ${
+                    isInWishlist(selectedProduct.id) ? "fill-rose-500 text-rose-500" : ""
+                  }`}
+                />
+              </button>
             </div>
 
             {/* Product Details */}
@@ -4348,11 +4580,16 @@ export default function App() {
                 <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">
                   {selectedProduct.category}
                 </div>
-                <h3 className="text-base font-bold text-neutral-950 mb-2 leading-snug">
+                <h3 className="text-base font-bold text-neutral-950 mb-1.5 leading-snug">
                   {selectedProduct.name}
                 </h3>
 
-
+                {selectedProduct.author && (
+                  <div className="text-xs text-neutral-600 mb-3 flex items-center gap-1.5">
+                    <span className="text-neutral-400">Tác giả:</span>
+                    <strong className="text-neutral-800">{selectedProduct.author}</strong>
+                  </div>
+                )}
 
                 {/* Price */}
                 <div className="flex items-baseline gap-2 mb-4 bg-neutral-50 p-3 rounded-xl border border-neutral-200/60">
@@ -4377,10 +4614,10 @@ export default function App() {
                     Thông tin xuất bản & Tác giả:
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-600">
-                    {selectedProduct.specs.map((spec, i) => (
+                    {(selectedProduct.specs || []).map((spec, i) => (
                       <div key={i} className="flex items-center gap-1 text-[11px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                        {spec}
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                        <span className="truncate">{spec}</span>
                       </div>
                     ))}
                   </div>
@@ -4392,11 +4629,11 @@ export default function App() {
                     Chọn phiên bản bìa:
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {selectedProduct.colors.map((c) => (
+                    {(selectedProduct.colors || ["Bìa mềm tiêu chuẩn"]).map((c) => (
                       <button
                         key={c}
                         onClick={() => setSelectedColor(c)}
-                        className={`px-3 py-1 text-xs rounded-lg border transition-all ${
+                        className={`px-3 py-1 text-xs rounded-lg border transition-all cursor-pointer ${
                           selectedColor === c
                             ? "border-neutral-900 bg-neutral-900 text-white font-semibold"
                             : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
@@ -4416,14 +4653,14 @@ export default function App() {
                   <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
                     <button
                       onClick={() => setModalQuantity((q) => Math.max(1, q - 1))}
-                      className="p-1.5 hover:bg-neutral-100 text-neutral-600"
+                      className="p-1.5 hover:bg-neutral-100 text-neutral-600 cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
                     <span className="px-3 text-xs font-bold">{modalQuantity}</span>
                     <button
                       onClick={() => setModalQuantity((q) => q + 1)}
-                      className="p-1.5 hover:bg-neutral-100 text-neutral-600"
+                      className="p-1.5 hover:bg-neutral-100 text-neutral-600 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -4434,6 +4671,7 @@ export default function App() {
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2 pt-3 border-t border-neutral-100">
                 <button
+                  type="button"
                   onClick={() => {
                     addToCart(selectedProduct, selectedColor, modalQuantity);
                     setSelectedProduct(null);
@@ -4443,6 +4681,7 @@ export default function App() {
                   <ShoppingCart className="w-3.5 h-3.5" /> Thêm vào giỏ
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     addToCart(selectedProduct, selectedColor, modalQuantity);
                     setSelectedProduct(null);
@@ -4451,6 +4690,28 @@ export default function App() {
                   className="py-2.5 px-3 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
                 >
                   Mua ngay <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Nút yêu thích trong Modal Chi Tiết */}
+                <button
+                  type="button"
+                  onClick={() => toggleWishlist(selectedProduct.id)}
+                  className={`col-span-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    isInWishlist(selectedProduct.id)
+                      ? "border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                      : "border-neutral-200 bg-white text-neutral-700 hover:border-rose-200 hover:text-rose-600 hover:bg-rose-50/40"
+                  }`}
+                >
+                  <Heart
+                    className={`w-3.5 h-3.5 ${
+                      isInWishlist(selectedProduct.id) ? "fill-rose-500 text-rose-500" : "text-neutral-500"
+                    }`}
+                  />
+                  <span>
+                    {isInWishlist(selectedProduct.id)
+                      ? "Đã lưu vào danh sách yêu thích (Bấm để bỏ thích)"
+                      : "Thêm vào danh sách yêu thích"}
+                  </span>
                 </button>
 
                 {isAdminLoggedIn && (
@@ -4941,6 +5202,209 @@ export default function App() {
                 >
                   {customerUser ? "Xác nhận đặt hàng" : "Đăng nhập để đặt hàng"}
                 </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= DRAWER: WISHLIST (SẢN PHẨM YÊU THÍCH) ================= */}
+      {isWishlistOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div
+            onClick={() => setIsWishlistOpen(false)}
+            className="fixed inset-0 bg-neutral-950/50 backdrop-blur-sm animate-in fade-in"
+          ></div>
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="p-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center">
+                  <Heart className="w-4 h-4 fill-rose-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900">
+                    Sản phẩm yêu thích ({wishlist.length})
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    Danh sách những cuốn sách bạn đã lưu
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWishlistOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {wishlist.length === 0 ? (
+                <div className="text-center py-24 text-neutral-400">
+                  <div className="w-14 h-14 rounded-full bg-rose-50 text-rose-300 flex items-center justify-center mx-auto mb-3">
+                    <Heart className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm font-bold text-neutral-700 mb-1">
+                    Chưa có sách nào được thích
+                  </h4>
+                  <p className="text-xs text-neutral-500 max-w-xs mx-auto mb-4">
+                    Nhấn vào biểu tượng trái tim ở từng cuốn sách bạn quan tâm để lưu lại tại đây!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWishlistOpen(false);
+                      setSelectedCategory("Tất cả");
+                    }}
+                    className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    Khám phá sách ngay
+                  </button>
+                </div>
+              ) : (
+                (() => {
+                  const favoriteBooks = products.filter((p) => wishlist.includes(p.id));
+                  return (
+                    <div className="space-y-3">
+                      {favoriteBooks.map((book) => (
+                        <div
+                          key={book.id}
+                          className="flex gap-3 p-3 rounded-xl border border-neutral-200/80 hover:border-neutral-300 bg-white transition-all shadow-xs"
+                        >
+                          {/* Image */}
+                          <div
+                            onClick={() => {
+                              setIsWishlistOpen(false);
+                              handleOpenDetail(book);
+                            }}
+                            className="w-16 h-20 rounded-lg overflow-hidden bg-neutral-100 shrink-0 cursor-pointer border border-neutral-100"
+                          >
+                            <img
+                              src={book.image}
+                              alt={book.name}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform"
+                            />
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <div className="text-[10px] text-neutral-400 font-medium">
+                                {book.category}
+                              </div>
+                              <h4
+                                onClick={() => {
+                                  setIsWishlistOpen(false);
+                                  handleOpenDetail(book);
+                                }}
+                                className="text-xs font-bold text-neutral-900 truncate cursor-pointer hover:text-indigo-600 transition-colors"
+                                title={book.name}
+                              >
+                                {book.name}
+                              </h4>
+                              {book.author && (
+                                <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                                  Tác giả: {book.author}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-100">
+                              <div>
+                                <span className="text-xs font-extrabold text-neutral-950">
+                                  {formatVND(book.price)}
+                                </span>
+                                {book.originalPrice > book.price && (
+                                  <span className="text-[10px] text-neutral-400 line-through ml-1.5">
+                                    {formatVND(book.originalPrice)}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const defaultColor =
+                                      Array.isArray(book.colors) && book.colors.length > 0
+                                        ? book.colors[0]
+                                        : "Bìa mềm tiêu chuẩn";
+                                    addToCart(book, defaultColor, 1);
+                                  }}
+                                  className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-semibold rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="Thêm cuốn này vào giỏ"
+                                >
+                                  <ShoppingCart className="w-3 h-3" />
+                                  <span>Thêm giỏ</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleWishlist(book.id)}
+                                  className="p-1 rounded-lg text-neutral-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Gỡ khỏi yêu thích"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            {wishlist.length > 0 && (
+              <div className="p-4 border-t border-neutral-200 bg-neutral-50 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const favoriteBooks = products.filter((p) => wishlist.includes(p.id));
+                    favoriteBooks.forEach((book) => {
+                      const defaultColor =
+                        Array.isArray(book.colors) && book.colors.length > 0
+                          ? book.colors[0]
+                          : "Bìa mềm tiêu chuẩn";
+                      addToCart(book, defaultColor, 1);
+                    });
+                    showToast(`Đã thêm tất cả ${favoriteBooks.length} cuốn yêu thích vào giỏ hàng!`);
+                    setIsWishlistOpen(false);
+                    setIsCartOpen(true);
+                  }}
+                  className="w-full py-2.5 bg-neutral-950 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <span>Thêm tất cả vào giỏ hàng & mua ngay</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWishlistOpen(false);
+                      setSelectedCategory("Yêu thích");
+                    }}
+                    className="flex-1 py-2 bg-white hover:bg-neutral-100 text-neutral-700 font-semibold text-xs rounded-xl border border-neutral-200 transition-colors text-center cursor-pointer"
+                  >
+                    Xem dạng lưới ngoài trang chủ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearWishlist}
+                    className="py-2 px-3 bg-white hover:bg-rose-50 text-rose-600 font-semibold text-xs rounded-xl border border-rose-200 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Xóa toàn bộ"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Làm trống</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
