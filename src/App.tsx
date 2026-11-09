@@ -618,6 +618,30 @@ const DEFAULT_REVIEWS: Record<number, BookReview[]> = {
   ],
 };
 
+// ==============================================================================
+// HÀM TÍNH TOÁN CÁC TRANG HIỂN THỊ PHÂN TRANG (SLIDING WINDOW PAGINATION)
+// Chuẩn giao diện: « ‹ 3 4 [5] 6 7 › » hoặc « ‹ 1 2 [3] 4 5 › »
+// Luôn hiển thị tối đa 5 trang liền kề quanh trang hiện tại
+// ==============================================================================
+function getVisiblePages(currentPage: number, totalPages: number): number[] {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  let start = Math.max(1, currentPage - 2);
+  let end = Math.min(totalPages, start + 4);
+
+  if (end - start < 4) {
+    start = Math.max(1, end - 4);
+  }
+
+  const pages: number[] = [];
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  return pages;
+}
+
 export default function App() {
   // Navigation view synced with URL pathname (e.g. /admin)
   const [currentView, setCurrentView] = useState<"store" | "admin">(() => {
@@ -2227,24 +2251,34 @@ export default function App() {
                       <div className="text-neutral-500">
                         Hiển thị <span className="font-semibold text-neutral-900">{(adminProductPage - 1) * ADMIN_ITEMS_PER_PAGE + 1}</span> - <span className="font-semibold text-neutral-900">{Math.min(adminProductPage * ADMIN_ITEMS_PER_PAGE, adminFilteredProducts.length)}</span> trên tổng số <span className="font-semibold text-neutral-900">{adminFilteredProducts.length}</span> sản phẩm
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
+                          title="Về trang đầu"
+                          onClick={() => setAdminProductPage(1)}
+                          disabled={adminProductPage === 1}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        >
+                          «
+                        </button>
+                        <button
+                          type="button"
+                          title="Trang trước"
                           onClick={() => setAdminProductPage((p) => Math.max(1, p - 1))}
                           disabled={adminProductPage === 1}
-                          className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-neutral-700 transition-colors cursor-pointer"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         >
-                          Trước
+                          ‹
                         </button>
-                        {Array.from({ length: adminTotalPages }, (_, i) => i + 1).map((pg) => (
+                        {getVisiblePages(adminProductPage, adminTotalPages).map((pg) => (
                           <button
                             key={pg}
                             type="button"
                             onClick={() => setAdminProductPage(pg)}
-                            className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
                               adminProductPage === pg
-                                ? "bg-neutral-950 text-white shadow-xs"
-                                : "bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700"
+                                ? "bg-[#f97316] text-white shadow-xs"
+                                : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
                             }`}
                           >
                             {pg}
@@ -2252,11 +2286,21 @@ export default function App() {
                         ))}
                         <button
                           type="button"
+                          title="Trang sau"
                           onClick={() => setAdminProductPage((p) => Math.min(adminTotalPages, p + 1))}
                           disabled={adminProductPage === adminTotalPages}
-                          className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-neutral-700 transition-colors cursor-pointer"
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         >
-                          Sau
+                          ›
+                        </button>
+                        <button
+                          type="button"
+                          title="Trang cuối"
+                          onClick={() => setAdminProductPage(adminTotalPages)}
+                          disabled={adminProductPage === adminTotalPages}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        >
+                          »
                         </button>
                       </div>
                     </div>
@@ -3961,20 +4005,37 @@ export default function App() {
                     Hiển thị <span className="font-semibold text-neutral-900">{(storePage - 1) * STORE_ITEMS_PER_PAGE + 1}</span> - <span className="font-semibold text-neutral-900">{Math.min(storePage * STORE_ITEMS_PER_PAGE, filteredProducts.length)}</span> trên tổng số <span className="font-semibold text-neutral-900">{filteredProducts.length}</span> sản phẩm
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
+                    {/* Nút về trang đầu tiên « */}
                     <button
                       type="button"
+                      title="Về trang đầu tiên"
+                      onClick={() => {
+                        setStorePage(1);
+                        window.scrollTo({ top: 350, behavior: "smooth" });
+                      }}
+                      disabled={storePage === 1}
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      «
+                    </button>
+
+                    {/* Nút lùi 1 trang ‹ */}
+                    <button
+                      type="button"
+                      title="Trang trước"
                       onClick={() => {
                         setStorePage((p) => Math.max(1, p - 1));
                         window.scrollTo({ top: 350, behavior: "smooth" });
                       }}
                       disabled={storePage === 1}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-neutral-200 text-neutral-700 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
-                      ← Trước
+                      ‹
                     </button>
 
-                    {Array.from({ length: storeTotalPages }, (_, i) => i + 1).map((pageNum) => (
+                    {/* Danh sách các trang liền kề theo mẫu ảnh « ‹ 3 4 [5] 6 7 › » */}
+                    {getVisiblePages(storePage, storeTotalPages).map((pageNum) => (
                       <button
                         key={pageNum}
                         type="button"
@@ -3982,26 +4043,42 @@ export default function App() {
                           setStorePage(pageNum);
                           window.scrollTo({ top: 350, behavior: "smooth" });
                         }}
-                        className={`w-8 h-8 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                        className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all cursor-pointer ${
                           storePage === pageNum
-                            ? "bg-neutral-950 text-white shadow-xs"
-                            : "bg-white border border-neutral-200 text-neutral-700 hover:bg-neutral-100"
+                            ? "bg-[#f97316] text-white shadow-md shadow-orange-500/25 scale-105"
+                            : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
                         }`}
                       >
                         {pageNum}
                       </button>
                     ))}
 
+                    {/* Nút tiến 1 trang › */}
                     <button
                       type="button"
+                      title="Trang sau"
                       onClick={() => {
                         setStorePage((p) => Math.min(storeTotalPages, p + 1));
                         window.scrollTo({ top: 350, behavior: "smooth" });
                       }}
                       disabled={storePage === storeTotalPages}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-neutral-200 text-neutral-700 bg-white hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
-                      Sau →
+                      ›
+                    </button>
+
+                    {/* Nút đến trang cuối cùng » */}
+                    <button
+                      type="button"
+                      title="Đến trang cuối cùng"
+                      onClick={() => {
+                        setStorePage(storeTotalPages);
+                        window.scrollTo({ top: 350, behavior: "smooth" });
+                      }}
+                      disabled={storePage === storeTotalPages}
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      »
                     </button>
                   </div>
                 </div>
