@@ -9,11 +9,14 @@ import { Category } from '../models/category.model.js';
 import { Book } from '../models/book.model.js';
 import { Order } from '../models/order.model.js';
 import { OrderDetail } from '../models/order-detail.model.js';
+import { Coupon } from '../models/coupon.model.js';
+import { Review } from '../models/review.model.js';
 import {
   INITIAL_USERS,
   INITIAL_CATEGORIES,
   INITIAL_BOOKS,
   INITIAL_COUPONS,
+  INITIAL_REVIEWS,
 } from '../seed/initial-data.js';
 
 dotenv.config();
@@ -57,6 +60,20 @@ export async function connectDB() {
       await Book.deleteMany({});
       await Book.insertMany(INITIAL_BOOKS);
       console.log(`✅ Đã nạp thành công toàn bộ ${INITIAL_BOOKS.length} cuốn sách vào cơ sở dữ liệu.`);
+    }
+
+    // 4. Tự động Seed Coupons nếu collection rỗng
+    const couponCount = await Coupon.countDocuments();
+    if (couponCount === 0) {
+      await Coupon.insertMany(INITIAL_COUPONS);
+      console.log(`✅ Đã nạp thành công ${INITIAL_COUPONS.length} mã giảm giá vào cơ sở dữ liệu.`);
+    }
+
+    // 5. Tự động Seed Reviews nếu collection rỗng
+    const reviewCount = await Review.countDocuments();
+    if (reviewCount === 0) {
+      await Review.insertMany(INITIAL_REVIEWS);
+      console.log(`✅ Đã nạp thành công ${INITIAL_REVIEWS.length} nhận xét độc giả vào cơ sở dữ liệu.`);
     }
 
     return mongoose.connection;

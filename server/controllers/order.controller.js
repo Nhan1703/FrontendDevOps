@@ -115,6 +115,25 @@ export class OrderController {
       next(error);
     }
   }
+
+  /**
+   * [GET] /api/orders/track/:query - Tra cứu tiến trình vận đơn công khai
+   */
+  async trackOrder(req, res, next) {
+    try {
+      const query = req.params.query || req.query.q || req.query.code || req.query.phone;
+      const data = await orderService.trackOrder(query);
+      return res.status(200).json({
+        success: true,
+        ...data,
+      });
+    } catch (error) {
+      return res.status(404).json({
+        success: false,
+        message: error.message || 'Không tìm thấy thông tin đơn hàng!',
+      });
+    }
+  }
 }
 
 export const orderController = new OrderController();

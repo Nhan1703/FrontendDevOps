@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { orderRepository } from '../repositories/order.repository.js';
 import { bookRepository } from '../repositories/book.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
+import { couponRepository } from '../repositories/coupon.repository.js';
 import { toOrderResponseDTO } from '../dtos/checkout.dto.js';
 
 export class OrderService {
@@ -147,11 +148,14 @@ export class OrderService {
       // 4. Áp dụng mã giảm giá (nếu có)
       let discountAmount = 0;
       if (couponCode) {
-        if (couponCode.toUpperCase() === 'DEVOPS20' && calculatedTotalAmount >= 200000) {
-          discountAmount = Math.min(50000, Math.round(calculatedTotalAmount * 0.2));
-        } else if (couponCode.toUpperCase() === 'BOOKSTORE10' && calculatedTotalAmount >= 100000) {
-          discountAmount = Math.min(30000, Math.round(calculatedTotalAmount * 0.1));
-        } else if (couponCode.toUpperCase() === 'BANMOI50K' && calculatedTotalAmount >= 300000) {
+        const cleanCoupon = couponCode.toUpperCase();
+        if (cleanCoupon === 'DEVOPS20' && calculatedTotalAmount >= 200000) {
+          discountAmount = Math.min(100000, Math.round(calculatedTotalAmount * 0.2));
+        } else if (cleanCoupon === 'BOOKSTORE10' && calculatedTotalAmount >= 100000) {
+          discountAmount = Math.min(50000, Math.round(calculatedTotalAmount * 0.1));
+        } else if (cleanCoupon === 'FREESHIP') {
+          discountAmount = 30000;
+        } else if (cleanCoupon === 'BANMOI50K' && calculatedTotalAmount >= 300000) {
           discountAmount = 50000;
         }
       }
@@ -294,6 +298,63 @@ export class OrderService {
     }
 
     return toOrderResponseDTO(updated);
+  }
+
+  /**
+   * Tra cứu đơn hàng phục vụ tính năng Order Tracking
+   * @param {string} query - Mã đơn hàng (DH-xxxx) hoặc Số điện thoại
+   * @returns {Promise<object>} Thông tin đơn hàng kèm timeline tiến trình
+   */
+  async trackOrder(query) {
+    if (!query || !query.trim()) {
+      throw new Error('Vui lòng nhập mã đơn hàng hoặc số điện thoại để tra cứu!');
+    }
+
+    const order = await orderRepository.findByTrackingQuery(query.trim());
+    if (!order) {
+      const error = new Error(`Không tìm thấy đơn hàng nào khớp với "${query.trim()}"!`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const currentStatus = (order.status || 'pending').toLowerCase();
+
+    // Xây dựng tiến trình vận đơn 4 bước
+    const timeline = [
+      {
+        step: 1,
+        title: 'Đã tiếp nhận đơn hàng',
+        description: 'Đơn hàng đã được ghi nhận trên hệ thống BookStore.',
+        time: order.createdAt || order.orderDate,
+        isCompleted: true,
+      },
+      {
+        step: 2,
+        title: 'Đang đóng gói & chuẩn bị',
+        description: 'Kho đang kiểm tra chất lượng sách, bọc chống sốc & tặng kèm Bookmark.',
+        time: currentStatus !== 'pending' ? 'Hoàn tất đóng gói' : 'Đang xử lý',
+        isCompleted: ['processing', 'shipping', 'delivered'].includes(currentStatus),
+      },
+      {
+        step: 3,
+        title: 'Đang giao hàng hỏa tốc',
+        description: 'Đơn vị vận chuyển hỏa tốc đang giao sách tới địa chỉ nhận.',
+        time: ['shipping', 'delivered'].includes(currentStatus) ? 'Đang trên đường giao' : 'Dự kiến 1-2 ngày',
+        isCompleted: ['shipping', 'delivered'].includes(currentStatus),
+      },
+      {
+        step: 4,
+        title: 'Giao hàng thành công',
+        description: 'Đơn hàng đã được giao tận tay khách hàng.',
+        time: currentStatus === 'delivered' ? 'Đã nhận hàng' : 'Chờ giao hàng',
+        isCompleted: currentStatus === 'delivered',
+      },
+    ];
+
+    return {
+      order,
+      timeline,
+    };
   }
 }
 

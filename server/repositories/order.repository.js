@@ -85,6 +85,23 @@ export class OrderRepository {
   }
 
   /**
+   * Tra cứu đơn hàng theo Mã đơn hoặc Số điện thoại (dành cho tra cứu vận đơn)
+   * @param {string} query
+   * @returns {Promise<Order|null>}
+   */
+  async findByTrackingQuery(query) {
+    if (!query) return null;
+    const clean = query.trim();
+    return await Order.findOne({
+      $or: [
+        { id: clean },
+        { orderCode: clean },
+        { customerPhone: clean },
+      ],
+    }).sort({ createdAt: -1 });
+  }
+
+  /**
    * Sinh mã đơn hàng mới tiếp theo (dạng DH-1xxx)
    * @returns {Promise<string>}
    */

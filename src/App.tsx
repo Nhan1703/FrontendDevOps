@@ -55,6 +55,8 @@ import {
   ArrowUpDown,
   CreditCard,
   Heart,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 
 export interface Product {
@@ -220,30 +222,39 @@ const SAMPLE_IMAGE_PRESETS: SampleImagePreset[] = [
 export type OrderStatus = "pending" | "shipping" | "delivered" | "cancelled";
 
 export interface OrderItem {
-  id: number;
-  name: string;
-  price: number;
+  id?: number;
+  bookId?: number;
+  name?: string;
+  title?: string;
+  price?: number;
+  unitPrice?: number;
   quantity: number;
-  selectedColor: string;
-  image: string;
+  selectedColor?: string;
+  image?: string;
+  imageUrl?: string;
 }
 
 export interface Order {
   id: string;
+  orderCode?: string;
   userId?: string;
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
   customerAddress?: string;
+  shippingAddress?: string;
   items: OrderItem[];
   totalAmount: number;
+  totalBookAmount?: number;
   status: OrderStatus;
+  orderDate?: string;
   createdAt: string;
   note?: string;
   couponCode?: string;
   discountAmount?: number;
   shippingFee?: number;
-  paymentMethod?: "COD" | "Banking";
+  paymentMethod?: "COD" | "Banking" | string;
+  paymentStatus?: "Unpaid" | "Paid" | "Refunded" | string;
 }
 
 export interface AppUser {
@@ -597,6 +608,19 @@ const DEFAULT_COUPONS: CouponItem[] = [
     endDate: "31/12/2026",
     isActive: true,
   },
+  {
+    id: "CP-4",
+    code: "FREESHIP",
+    discountType: "FixedAmount",
+    discountValue: 30000,
+    minOrderAmount: 0,
+    maxDiscountAmount: 30000,
+    usageLimit: 2000,
+    usedCount: 105,
+    startDate: "01/01/2026",
+    endDate: "31/12/2026",
+    isActive: true,
+  },
 ];
 
 const DEFAULT_REVIEWS: Record<number, BookReview[]> = {
@@ -805,6 +829,182 @@ export default function App() {
     setToastMessage(msg);
     setToastType(type);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // ================= REVIEWS & RATINGS (ĐÁNH GIÁ SÁCH TỪ ĐỘC GIẢ) =================
+  const [reviewsMap, setReviewsMap] = useState<Record<number, BookReview[]>>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("bookstore_reviews");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") return parsed;
+        } catch (e) {
+          console.error("Lỗi nạp đánh giá từ localStorage:", e);
+        }
+      }
+    }
+    return DEFAULT_REVIEWS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("bookstore_reviews", JSON.stringify(reviewsMap));
+  }, [reviewsMap]);
+
+  const [productDetailTab, setProductDetailTab] = useState<"info" | "reviews">("info");
+  const [newReviewRating, setNewReviewRating] = useState<number>(5);
+  const [newReviewName, setNewReviewName] = useState<string>("");
+  const [newReviewComment, setNewReviewComment] = useState<string>("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+
+  // Gửi nhận xét đánh giá mới cho sách
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+
+    const authorName = (newReviewName || (customerUser ? customerUser.name : "")).trim();
+    if (!authorName) {
+      showToast("Vui lòng nhập họ tên của bạn để gửi nhận xét!", "error");
+      return;
+    }
+    if (!newReviewComment.trim()) {
+      showToast("Vui lòng nhập nội dung cảm nhận về cuốn sách!", "error");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+
+    const newRev: BookReview = {
+      id: `rev-${Date.now()}`,
+      bookId: selectedProduct.id,
+      userName: authorName,
+      userEmail: customerUser ? customerUser.email : "",
+      rating: newReviewRating,
+      comment: newReviewComment.trim(),
+      createdAt: new Date().toLocaleDateString("vi-VN"),
+      isApproved: true,
+    };
+
+    // Lưu vào State và LocalStorage
+    setReviewsMap((prev) => {
+      const curList = prev[selectedProduct.id] || [];
+      return {
+        ...prev,
+        [selectedProduct.id]: [newRev, ...curList],
+      };
+    });
+
+    // Đồng bộ gửi lên Backend API
+    fetch(`/api/books/${selectedProduct.id}/reviews`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userName: authorName,
+        userEmail: customerUser ? customerUser.email : "",
+        rating: newReviewRating,
+        comment: newReviewComment.trim(),
+      }),
+    }).catch(() => {});
+
+    showToast("Cảm ơn bạn đã gửi đánh giá cho cuốn sách! ⭐");
+    setNewReviewComment("");
+    setIsSubmittingReview(false);
+  };
+
+  // ================= COUPONS & VOUCHERS (MÃ GIẢM GIÁ & KHUYẾN MÃI) =================
+  const [coupons, setCoupons] = useState<CouponItem[]>(DEFAULT_COUPONS);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
+  const [couponInput, setCouponInput] = useState<string>("");
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  // ================= ORDER TRACKING (TRA CỨU TIẾN TRÌNH VẬN ĐƠN) =================
+  const [isOrderTrackingOpen, setIsOrderTrackingOpen] = useState<boolean>(false);
+  const [trackingQuery, setTrackingQuery] = useState<string>("");
+  const [trackedOrder, setTrackedOrder] = useState<Order | null>(null);
+  const [trackingTimeline, setTrackingTimeline] = useState<Array<{
+    step: number;
+    title: string;
+    description: string;
+    time: string;
+    isCompleted: boolean;
+  }> | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState<boolean>(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+
+  // Thực hiện tra cứu tiến trình đơn hàng
+  const handleTrackOrder = async (queryCode?: string) => {
+    const q = (queryCode || trackingQuery).trim();
+    if (!q) {
+      setTrackingError("Vui lòng nhập Mã đơn hàng hoặc Số điện thoại để tra cứu!");
+      return;
+    }
+
+    setTrackingLoading(true);
+    setTrackingError(null);
+    setTrackedOrder(null);
+    setTrackingTimeline(null);
+
+    try {
+      // 1. Thử gọi API tra cứu từ Backend
+      const res = await fetch(`/api/orders/track/${encodeURIComponent(q)}`);
+      const data = await res.json();
+
+      if (data.success && data.order) {
+        setTrackedOrder(data.order);
+        setTrackingTimeline(data.timeline || null);
+        setTrackingLoading(false);
+        return;
+      }
+    } catch (e) {
+      // Bỏ qua lỗi mạng để fallback tìm kiếm trong mảng orders local
+    }
+
+    // 2. Tìm kiếm trong mảng orders hiện tại
+    const cleanQ = q.toLowerCase();
+    const found = orders.find(
+      (o) =>
+        o.id.toLowerCase() === cleanQ ||
+        (o.customerPhone && o.customerPhone.includes(cleanQ))
+    );
+
+    if (found) {
+      setTrackedOrder(found);
+      const curStatus = (found.status || "pending").toLowerCase();
+      setTrackingTimeline([
+        {
+          step: 1,
+          title: "Đã tiếp nhận đơn hàng",
+          description: "Đơn hàng đã được ghi nhận trên hệ thống BookStore.",
+          time: found.createdAt || "Hôm nay",
+          isCompleted: true,
+        },
+        {
+          step: 2,
+          title: "Đang đóng gói & chuẩn bị",
+          description: "Kho đang kiểm tra chất lượng sách, bọc chống sốc & tặng kèm Bookmark.",
+          time: curStatus !== "pending" ? "Hoàn tất đóng gói" : "Đang xử lý",
+          isCompleted: ["processing", "shipping", "delivered"].includes(curStatus),
+        },
+        {
+          step: 3,
+          title: "Đang giao hàng hỏa tốc",
+          description: "Đơn vị vận chuyển hỏa tốc đang giao sách tới địa chỉ nhận.",
+          time: ["shipping", "delivered"].includes(curStatus) ? "Đang trên đường giao" : "Dự kiến 1-2 ngày",
+          isCompleted: ["shipping", "delivered"].includes(curStatus),
+        },
+        {
+          step: 4,
+          title: "Giao hàng thành công",
+          description: "Đơn hàng đã được giao tận tay khách hàng.",
+          time: curStatus === "delivered" ? "Đã nhận hàng" : "Chờ giao hàng",
+          isCompleted: curStatus === "delivered",
+        },
+      ]);
+    } else {
+      setTrackingError(`Không tìm thấy đơn hàng nào khớp với "${q}". Vui lòng kiểm tra lại Mã đơn hoặc Số điện thoại!`);
+    }
+
+    setTrackingLoading(false);
   };
 
   // ================= ADMIN TABS & MANAGEMENT STATES =================
@@ -1325,6 +1525,22 @@ export default function App() {
     });
     setSelectedColor(validColors[0] || "Bìa mềm tiêu chuẩn");
     setModalQuantity(1);
+    setProductDetailTab("info");
+    setNewReviewRating(5);
+    setNewReviewComment("");
+
+    // Tự động tải đánh giá mới nhất của sách từ Backend
+    fetch(`/api/books/${product.id}/reviews`)
+      .then((res) => res.json())
+      .then((resData) => {
+        if (resData.success && Array.isArray(resData.data)) {
+          setReviewsMap((prev) => ({
+            ...prev,
+            [product.id]: resData.data,
+          }));
+        }
+      })
+      .catch(() => {});
   };
 
   // Thêm nhanh vào giỏ từ card (xử lý màu sắc mặc định an toàn)
@@ -1437,6 +1653,57 @@ export default function App() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  // Áp dụng mã giảm giá
+  const handleApplyCoupon = (codeToApply?: string) => {
+    const code = (codeToApply || couponInput).trim().toUpperCase();
+    setCouponError(null);
+
+    if (!code) {
+      setCouponError("Vui lòng nhập mã giảm giá!");
+      return;
+    }
+
+    const found = coupons.find((c) => c.code === code && c.isActive);
+    if (!found) {
+      setCouponError(`Mã "${code}" không hợp lệ hoặc đã hết hạn!`);
+      return;
+    }
+
+    if (totalCartPrice < found.minOrderAmount) {
+      const minText = found.minOrderAmount.toLocaleString("vi-VN") + "đ";
+      setCouponError(`Mã "${code}" chỉ áp dụng cho đơn từ ${minText}!`);
+      return;
+    }
+
+    setAppliedCoupon(found);
+    setCouponInput("");
+    setCouponError(null);
+    showToast(`Đã áp dụng mã "${found.code}" thành công! 🎉`);
+  };
+
+  // Gỡ bỏ mã giảm giá
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError(null);
+    showToast("Đã gỡ mã giảm giá!");
+  };
+
+  // Tính số tiền được chiết khấu từ Voucher
+  const couponDiscountAmount = useMemo(() => {
+    if (!appliedCoupon || totalCartPrice === 0) return 0;
+    if (totalCartPrice < appliedCoupon.minOrderAmount) return 0;
+
+    if (appliedCoupon.discountType === "Percentage") {
+      const raw = Math.round((totalCartPrice * appliedCoupon.discountValue) / 100);
+      return appliedCoupon.maxDiscountAmount ? Math.min(raw, appliedCoupon.maxDiscountAmount) : raw;
+    } else {
+      return appliedCoupon.discountValue;
+    }
+  }, [appliedCoupon, totalCartPrice]);
+
+  // Tổng số tiền thanh toán cuối cùng sau khi trừ Voucher
+  const finalPayableAmount = Math.max(0, totalCartPrice - couponDiscountAmount);
 
   const formatVND = (num: number) => {
     return num.toLocaleString("vi-VN") + "đ";
@@ -3100,10 +3367,10 @@ export default function App() {
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-neutral-600">{item.selectedColor}</td>
-                              <td className="py-2.5 px-3 text-right font-medium">{formatVND(item.price)}</td>
+                              <td className="py-2.5 px-3 text-right font-medium">{formatVND(item.price ?? item.unitPrice ?? 0)}</td>
                               <td className="py-2.5 px-3 text-center font-bold">{item.quantity}</td>
                               <td className="py-2.5 px-3 text-right font-bold text-neutral-950">
-                                {formatVND(item.price * item.quantity)}
+                                {formatVND((item.price ?? item.unitPrice ?? 0) * item.quantity)}
                               </td>
                             </tr>
                           ))}
@@ -3939,6 +4206,16 @@ export default function App() {
                       <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Sách yêu thích ({wishlist.length})
                     </button>
                     <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setTrackingError(null);
+                        setIsOrderTrackingOpen(true);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-indigo-600" /> Tra cứu vận đơn
+                    </button>
+                    <button
                       onClick={handleCustomerLogout}
                       className="w-full px-3.5 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                     >
@@ -3959,6 +4236,19 @@ export default function App() {
                 <span className="hidden sm:inline">Đăng nhập</span>
               </button>
             )}
+
+            {/* Nút Tra cứu đơn hàng trên Header */}
+            <button
+              onClick={() => {
+                setTrackingError(null);
+                setIsOrderTrackingOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all cursor-pointer"
+              title="Tra cứu tiến trình vận đơn"
+            >
+              <Truck className="w-4 h-4 text-indigo-600" />
+              <span className="hidden sm:inline">Tra cứu đơn</span>
+            </button>
 
             {/* Wishlist Button (Sản phẩm yêu thích) */}
             <button
@@ -4585,87 +4875,252 @@ export default function App() {
                 </h3>
 
                 {selectedProduct.author && (
-                  <div className="text-xs text-neutral-600 mb-3 flex items-center gap-1.5">
+                  <div className="text-xs text-neutral-600 mb-2 flex items-center gap-1.5">
                     <span className="text-neutral-400">Tác giả:</span>
                     <strong className="text-neutral-800">{selectedProduct.author}</strong>
                   </div>
                 )}
 
-                {/* Price */}
-                <div className="flex items-baseline gap-2 mb-4 bg-neutral-50 p-3 rounded-xl border border-neutral-200/60">
-                  <span className="text-xl font-extrabold text-neutral-950">
-                    {formatVND(selectedProduct.price)}
-                  </span>
-                  {selectedProduct.originalPrice > selectedProduct.price && (
-                    <span className="text-xs text-neutral-400 line-through">
-                      {formatVND(selectedProduct.originalPrice)}
-                    </span>
-                  )}
+                {/* Tab Switcher: Thông tin vs Đánh giá */}
+                <div className="flex items-center gap-2 border-b border-neutral-200 mb-3.5 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setProductDetailTab("info")}
+                    className={`pb-1.5 px-1 text-xs font-bold transition-all relative cursor-pointer ${
+                      productDetailTab === "info"
+                        ? "text-neutral-950 border-b-2 border-neutral-900"
+                        : "text-neutral-400 hover:text-neutral-700"
+                    }`}
+                  >
+                    Thông tin & Mua sách
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProductDetailTab("reviews")}
+                    className={`pb-1.5 px-1 text-xs font-bold transition-all relative flex items-center gap-1 cursor-pointer ${
+                      productDetailTab === "reviews"
+                        ? "text-neutral-950 border-b-2 border-neutral-900"
+                        : "text-neutral-400 hover:text-neutral-700"
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Đánh giá ({(reviewsMap[selectedProduct.id] || []).length})</span>
+                  </button>
                 </div>
 
-                {/* Description */}
-                <p className="text-xs text-neutral-600 leading-relaxed mb-4">
-                  {selectedProduct.description}
-                </p>
+                {productDetailTab === "info" ? (
+                  <>
+                    {/* Price */}
+                    <div className="flex items-baseline gap-2 mb-4 bg-neutral-50 p-3 rounded-xl border border-neutral-200/60">
+                      <span className="text-xl font-extrabold text-neutral-950">
+                        {formatVND(selectedProduct.price)}
+                      </span>
+                      {selectedProduct.originalPrice > selectedProduct.price && (
+                        <span className="text-xs text-neutral-400 line-through">
+                          {formatVND(selectedProduct.originalPrice)}
+                        </span>
+                      )}
+                    </div>
 
-                {/* Specs */}
-                <div className="mb-4">
-                  <h4 className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider mb-2">
-                    Thông tin xuất bản & Tác giả:
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-600">
-                    {(selectedProduct.specs || []).map((spec, i) => (
-                      <div key={i} className="flex items-center gap-1 text-[11px]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
-                        <span className="truncate">{spec}</span>
+                    {/* Description */}
+                    <p className="text-xs text-neutral-600 leading-relaxed mb-4">
+                      {selectedProduct.description}
+                    </p>
+
+                    {/* Specs */}
+                    <div className="mb-4">
+                      <h4 className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider mb-2">
+                        Thông tin xuất bản & Tác giả:
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-neutral-600">
+                        {(selectedProduct.specs || []).map((spec, i) => (
+                          <div key={i} className="flex items-center gap-1 text-[11px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                            <span className="truncate">{spec}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                {/* Color Selection */}
-                <div className="mb-4">
-                  <h4 className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider mb-2">
-                    Chọn phiên bản bìa:
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {(selectedProduct.colors || ["Bìa mềm tiêu chuẩn"]).map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setSelectedColor(c)}
-                        className={`px-3 py-1 text-xs rounded-lg border transition-all cursor-pointer ${
-                          selectedColor === c
-                            ? "border-neutral-900 bg-neutral-900 text-white font-semibold"
-                            : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                    {/* Color Selection */}
+                    <div className="mb-4">
+                      <h4 className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider mb-2">
+                        Chọn phiên bản bìa:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {(selectedProduct.colors || ["Bìa mềm tiêu chuẩn"]).map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setSelectedColor(c)}
+                            className={`px-3 py-1 text-xs rounded-lg border transition-all cursor-pointer ${
+                              selectedColor === c
+                                ? "border-neutral-900 bg-neutral-900 text-white font-semibold"
+                                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                {/* Quantity */}
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-xs font-semibold text-neutral-700">
-                    Số lượng:
-                  </span>
-                  <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
-                    <button
-                      onClick={() => setModalQuantity((q) => Math.max(1, q - 1))}
-                      className="p-1.5 hover:bg-neutral-100 text-neutral-600 cursor-pointer"
+                    {/* Quantity */}
+                    <div className="flex items-center gap-3 mb-6">
+                      <span className="text-xs font-semibold text-neutral-700">
+                        Số lượng:
+                      </span>
+                      <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setModalQuantity((q) => Math.max(1, q - 1))}
+                          className="p-1.5 hover:bg-neutral-100 text-neutral-600 cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="px-3 text-xs font-bold">{modalQuantity}</span>
+                        <button
+                          onClick={() => setModalQuantity((q) => q + 1)}
+                          className="p-1.5 hover:bg-neutral-100 text-neutral-600 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* ================= TAB 2: ĐÁNH GIÁ & BÌNH LUẬN ================= */
+                  <div className="space-y-4">
+                    {/* Thống kê sao trung bình */}
+                    <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl font-extrabold text-amber-900">
+                          {selectedProduct.rating || 5.0}
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`w-3.5 h-3.5 ${
+                                  star <= Math.round(selectedProduct.rating || 5)
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-neutral-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-[10px] text-neutral-500">
+                            {(reviewsMap[selectedProduct.id] || []).length} nhận xét độc giả
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                        100% Độc giả hài lòng
+                      </span>
+                    </div>
+
+                    {/* Form gửi nhận xét */}
+                    <form
+                      onSubmit={handleSubmitReview}
+                      className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-2.5"
                     >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="px-3 text-xs font-bold">{modalQuantity}</span>
-                    <button
-                      onClick={() => setModalQuantity((q) => q + 1)}
-                      className="p-1.5 hover:bg-neutral-100 text-neutral-600 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-neutral-800">Viết cảm nhận của bạn:</span>
+                        {/* Interactive Star Picker */}
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              type="button"
+                              key={star}
+                              onClick={() => setNewReviewRating(star)}
+                              className="p-0.5 cursor-pointer hover:scale-110 transition-transform"
+                            >
+                              <Star
+                                className={`w-4 h-4 ${
+                                  star <= newReviewRating
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-neutral-300 hover:text-amber-300"
+                                }`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {!customerUser && (
+                        <input
+                          type="text"
+                          required
+                          value={newReviewName}
+                          onChange={(e) => setNewReviewName(e.target.value)}
+                          placeholder="Họ tên của bạn (bắt buộc)..."
+                          className="w-full px-2.5 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white"
+                        />
+                      )}
+
+                      <textarea
+                        required
+                        rows={2}
+                        value={newReviewComment}
+                        onChange={(e) => setNewReviewComment(e.target.value)}
+                        placeholder="Chia sẻ cảm nhận của bạn về cuốn sách, chất lượng in ấn..."
+                        className="w-full px-2.5 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white resize-none"
+                      />
+
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={isSubmittingReview}
+                          className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>Gửi đánh giá</span>
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Danh sách các đánh giá */}
+                    <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                      {(reviewsMap[selectedProduct.id] || []).length === 0 ? (
+                        <div className="text-center py-6 text-neutral-400">
+                          <p className="text-xs">Chưa có nhận xét nào cho cuốn sách này.</p>
+                          <p className="text-[10px] mt-0.5">Hãy là người đầu tiên chia sẻ cảm nhận nhé!</p>
+                        </div>
+                      ) : (
+                        (reviewsMap[selectedProduct.id] || []).map((rev) => (
+                          <div
+                            key={rev.id}
+                            className="p-2.5 bg-white rounded-lg border border-neutral-100 text-xs shadow-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center uppercase">
+                                  {rev.userName ? rev.userName.charAt(0) : "U"}
+                                </div>
+                                <span className="font-bold text-neutral-900">{rev.userName}</span>
+                              </div>
+                              <span className="text-[10px] text-neutral-400">{rev.createdAt}</span>
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star
+                                  key={s}
+                                  className={`w-3 h-3 ${
+                                    s <= rev.rating
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-neutral-200"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-neutral-600 text-[11px] leading-relaxed pt-0.5">
+                              {rev.comment}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -4934,10 +5389,26 @@ export default function App() {
                                   </div>
                                 </div>
                                 <div className="text-right font-bold text-neutral-900 shrink-0">
-                                  {formatVND(item.price * item.quantity)}
+                                  {formatVND((item.price ?? item.unitPrice ?? 0) * item.quantity)}
                                 </div>
                               </div>
                             ))}
+                          </div>
+
+                          {/* Nút xem chi tiết tiến trình vận chuyển */}
+                          <div className="pt-2 border-t border-neutral-100 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsMyOrdersOpen(false);
+                                handleTrackOrder(order.id);
+                                setIsOrderTrackingOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                              <span>Theo dõi vận đơn</span>
+                            </button>
                           </div>
                         </div>
                       );
@@ -5056,10 +5527,99 @@ export default function App() {
             {/* Footer */}
             {cart.length > 0 && (
               <div className="p-4 border-t border-neutral-200 bg-neutral-50 space-y-3 overflow-y-auto max-h-[50vh]">
+                {/* ================= KHỐI MÃ GIẢM GIÁ (VOUCHER / COUPON) ================= */}
+                <div className="p-3 bg-white rounded-xl border border-neutral-200/90 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-neutral-800 flex items-center gap-1">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-600" />
+                      Mã giảm giá BookStore:
+                    </span>
+                    {appliedCoupon && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-[10px] text-rose-500 hover:underline font-semibold cursor-pointer"
+                      >
+                        Gỡ mã
+                      </button>
+                    )}
+                  </div>
+
+                  {appliedCoupon ? (
+                    <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs text-emerald-800">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Mã {appliedCoupon.code}</span>
+                      </div>
+                      <span className="font-extrabold text-emerald-700">
+                        -{formatVND(couponDiscountAmount)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            setCouponError(null);
+                          }}
+                          placeholder="Nhập mã (VD: DEVOPS20)..."
+                          className="flex-1 px-2.5 py-1.5 text-xs border border-neutral-300 rounded-lg uppercase font-semibold focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-neutral-50/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleApplyCoupon()}
+                          className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors"
+                        >
+                          Áp dụng
+                        </button>
+                      </div>
+
+                      {couponError && (
+                        <p className="text-[10px] text-rose-600 font-medium">{couponError}</p>
+                      )}
+
+                      {/* Danh sách mã voucher gợi ý bấm nhanh */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {coupons.map((c) => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => handleApplyCoupon(c.code)}
+                            className="px-2 py-0.5 rounded text-[10px] font-semibold bg-neutral-100 hover:bg-indigo-50 hover:text-indigo-600 text-neutral-600 border border-neutral-200 cursor-pointer transition-colors"
+                          >
+                            {c.code} {c.discountType === "Percentage" ? `(-${c.discountValue}%)` : `(-${formatVND(c.discountValue)})`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chi tiết tính tiền */}
+                  <div className="space-y-1 pt-2 border-t border-neutral-100 text-xs text-neutral-600">
+                    <div className="flex justify-between">
+                      <span>Tạm tính tiền sách:</span>
+                      <span className="font-semibold text-neutral-900">{formatVND(totalCartPrice)}</span>
+                    </div>
+                    {couponDiscountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-600 font-medium">
+                        <span>Giảm giá Voucher:</span>
+                        <span>-{formatVND(couponDiscountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-neutral-500 text-[11px]">
+                      <span>Phí vận chuyển:</span>
+                      <span className="text-emerald-600 font-semibold">Miễn phí</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-between items-center text-xs font-bold text-neutral-900 pb-2 border-b border-neutral-200">
                   <span>Tổng tiền thanh toán:</span>
                   <span className="text-base font-extrabold text-neutral-950">
-                    {formatVND(totalCartPrice)}
+                    {formatVND(finalPayableAmount)}
                   </span>
                 </div>
 
@@ -5144,23 +5704,35 @@ export default function App() {
 
                     const newOrder: Order = {
                       id: newOrderId,
+                      orderCode: newOrderId,
                       userId: customerUser.id,
                       customerName: customerUser.name,
                       customerEmail: customerUser.email,
                       customerPhone: finalPhone,
+                      shippingAddress: finalAddress,
                       customerAddress: finalAddress,
                       items: cart.map((item) => ({
                         id: item.id,
+                        bookId: item.id,
+                        title: item.name,
                         name: item.name,
+                        unitPrice: item.price,
                         price: item.price,
                         quantity: item.quantity,
                         selectedColor: item.selectedColor,
+                        imageUrl: item.image,
                         image: item.image,
                       })),
-                      totalAmount: totalCartPrice,
+                      totalAmount: finalPayableAmount,
+                      totalBookAmount: totalCartPrice,
+                      discountAmount: couponDiscountAmount,
+                      couponCode: appliedCoupon ? appliedCoupon.code : undefined,
                       status: "pending",
-                      createdAt: formattedDate,
+                      paymentMethod: "COD",
+                      paymentStatus: "Unpaid",
                       note: finalNote,
+                      orderDate: formattedDate,
+                      createdAt: formattedDate,
                     };
 
                     setOrders((prev) => [newOrder, ...prev]);
@@ -5187,14 +5759,17 @@ export default function App() {
                       })
                       .catch((err) => console.error("Error creating order in DB:", err));
 
-                    alert(
-                      `🎉 Đặt mua sách thành công! Mã đơn: ${newOrderId}.\n👤 Khách hàng: ${customerUser.name} (${customerUser.email})\n📍 Giao đến: ${finalAddress}\n📞 SĐT: ${finalPhone}\n📝 Ghi chú: ${finalNote}\n\nĐơn hàng đã được lưu và gửi tới hệ thống quản lý BookStore.`
-                    );
+                    showToast(`🎉 Đặt mua sách thành công! Mã đơn: ${newOrderId}`);
                     setCart([]);
+                    setAppliedCoupon(null);
                     setCheckoutPhone("");
                     setCheckoutAddress("");
                     setCheckoutNote("");
                     setIsCartOpen(false);
+
+                    // Mở ngay cửa sổ tra cứu tiến trình đơn hàng
+                    handleTrackOrder(newOrderId);
+                    setIsOrderTrackingOpen(true);
                   }}
                   className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-98 cursor-pointer ${
                     customerUser ? "bg-neutral-950 hover:bg-neutral-800" : "bg-amber-600 hover:bg-amber-700"
@@ -5407,6 +5982,293 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ORDER TRACKING (TRA CỨU VẬN ĐƠN) ================= */}
+      {isOrderTrackingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            onClick={() => setIsOrderTrackingOpen(false)}
+            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm animate-in fade-in"
+          ></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 border border-neutral-200 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900 leading-snug">
+                    Tra Cứu Tiến Trình Vận Đơn
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Kiểm tra lộ trình giao hàng trực tiếp bằng Mã đơn hàng hoặc Số điện thoại
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOrderTrackingOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-neutral-200/60 text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Thanh tra cứu */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleTrackOrder();
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type="text"
+                    value={trackingQuery}
+                    onChange={(e) => {
+                      setTrackingQuery(e.target.value);
+                      setTrackingError(null);
+                    }}
+                    placeholder="Nhập mã đơn (VD: DH-1001) hoặc số điện thoại người nhận..."
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={trackingLoading}
+                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
+                >
+                  {trackingLoading ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Search className="w-3.5 h-3.5" />
+                  )}
+                  <span>Tra cứu</span>
+                </button>
+              </form>
+
+              {/* Thông báo lỗi nếu không tìm thấy */}
+              {trackingError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{trackingError}</span>
+                </div>
+              )}
+
+              {/* Chi tiết đơn hàng tra cứu thành công */}
+              {trackedOrder ? (
+                <div className="space-y-4">
+                  {/* Card trạng thái đơn */}
+                  <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sm text-neutral-950">
+                          #{trackedOrder.id}
+                        </span>
+                        <span
+                          className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                            trackedOrder.status === "delivered"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : trackedOrder.status === "shipping"
+                              ? "bg-blue-50 text-blue-800 border-blue-200"
+                              : trackedOrder.status === "cancelled"
+                              ? "bg-rose-50 text-rose-800 border-rose-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                          }`}
+                        >
+                          {trackedOrder.status === "delivered"
+                            ? "✅ Đã giao thành công"
+                            : trackedOrder.status === "shipping"
+                            ? "🚚 Đang giao hàng"
+                            : trackedOrder.status === "cancelled"
+                            ? "❌ Đã hủy"
+                            : "🕒 Chờ xử lý & đóng gói"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-400 mt-1">
+                        Ngày đặt hàng: {trackedOrder.createdAt || trackedOrder.orderDate}
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <span className="text-[10px] text-neutral-400 block">Tổng thanh toán</span>
+                      <span className="text-base font-extrabold text-neutral-950">
+                        {formatVND(trackedOrder.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Visual Stepper Timeline 4 Chặng */}
+                  {trackingTimeline && (
+                    <div className="p-4 bg-white rounded-xl border border-neutral-200/90 shadow-2xs">
+                      <h4 className="text-xs font-bold text-neutral-900 mb-4 flex items-center gap-1.5 uppercase tracking-wider">
+                        <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                        Tiến trình vận chuyển bưu kiện:
+                      </h4>
+
+                      <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-neutral-200">
+                        {trackingTimeline.map((step) => (
+                          <div key={step.step} className="relative">
+                            {/* Chấm tròn biểu tượng */}
+                            <div
+                              className={`absolute -left-6 sm:-left-8 top-0.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${
+                                step.isCompleted
+                                  ? "bg-emerald-500 text-white ring-4 ring-emerald-50"
+                                  : "bg-neutral-100 text-neutral-400 border border-neutral-300"
+                              }`}
+                            >
+                              {step.isCompleted ? <Check className="w-3.5 h-3.5" /> : step.step}
+                            </div>
+
+                            <div>
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                <h5
+                                  className={`text-xs font-bold ${
+                                    step.isCompleted ? "text-neutral-900" : "text-neutral-400"
+                                  }`}
+                                >
+                                  {step.title}
+                                </h5>
+                                <span className="text-[10px] text-neutral-400 font-medium">
+                                  {step.time}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Thông tin người nhận */}
+                  <div className="p-3.5 bg-neutral-50/70 rounded-xl border border-neutral-200/70 text-xs space-y-1.5">
+                    <h5 className="font-bold text-neutral-800 text-[11px] uppercase tracking-wider mb-1">
+                      Địa chỉ nhận hàng:
+                    </h5>
+                    <div className="flex items-center gap-2 text-neutral-700">
+                      <User className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>{trackedOrder.customerName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-neutral-700">
+                      <Phone className="w-3.5 h-3.5 text-neutral-400" />
+                      <span>{trackedOrder.customerPhone || "Chưa cung cấp"}</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-neutral-700">
+                      <MapPin className="w-3.5 h-3.5 text-neutral-400 mt-0.5 shrink-0" />
+                      <span>{trackedOrder.customerAddress || trackedOrder.shippingAddress || "Toàn quốc"}</span>
+                    </div>
+                    {trackedOrder.note && (
+                      <div className="flex items-start gap-2 text-neutral-500 text-[11px] pt-1 border-t border-neutral-200/60">
+                        <FileText className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span>Ghi chú: {trackedOrder.note}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Danh sách các cuốn sách trong đơn */}
+                  <div className="space-y-2">
+                    <h5 className="text-[11px] font-bold text-neutral-800 uppercase tracking-wider">
+                      Các cuốn sách trong kiện hàng ({(trackedOrder.items || []).length}):
+                    </h5>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {(trackedOrder.items || []).map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2.5 bg-white border border-neutral-200 rounded-xl text-xs gap-3"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {item.image || item.imageUrl ? (
+                              <img
+                                src={item.image || item.imageUrl}
+                                alt={item.name || item.title}
+                                className="w-10 h-12 object-cover rounded bg-neutral-100 shrink-0 border border-neutral-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-12 bg-neutral-100 rounded flex items-center justify-center shrink-0">
+                                <BookOpen className="w-4 h-4 text-neutral-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <h6 className="font-bold text-neutral-900 truncate">
+                                {item.name || item.title}
+                              </h6>
+                              <p className="text-[10px] text-neutral-400 mt-0.5">
+                                Bản: {item.selectedColor || "Bìa mềm chuẩn"} • SL: {item.quantity}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-extrabold text-neutral-900 shrink-0">
+                            {formatVND((item.price || item.unitPrice || 0) * item.quantity)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Chi tiết tài chính */}
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/70 text-xs space-y-1 text-neutral-600">
+                    <div className="flex justify-between">
+                      <span>Tạm tính tiền sách:</span>
+                      <span className="font-semibold text-neutral-900">
+                        {formatVND(trackedOrder.totalBookAmount || trackedOrder.totalAmount)}
+                      </span>
+                    </div>
+                    {trackedOrder.discountAmount && trackedOrder.discountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-600 font-medium">
+                        <span>Giảm giá voucher {trackedOrder.couponCode ? `(${trackedOrder.couponCode})` : ""}:</span>
+                        <span>-{formatVND(trackedOrder.discountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-neutral-500 text-[11px]">
+                      <span>Phí vận chuyển:</span>
+                      <span className="text-emerald-600 font-semibold">Miễn phí giao hỏa tốc</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-neutral-950 pt-1.5 border-t border-neutral-200">
+                      <span>Tổng tiền đã thanh toán:</span>
+                      <span className="text-sm font-extrabold text-neutral-950">
+                        {formatVND(trackedOrder.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Hướng dẫn khi chưa tra cứu */
+                <div className="text-center py-10 text-neutral-400">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+                    <Package className="w-7 h-7" />
+                  </div>
+                  <h4 className="text-sm font-bold text-neutral-700 mb-1">
+                    Nhập mã đơn để kiểm tra tiến trình
+                  </h4>
+                  <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+                    Mã đơn hàng được hiển thị sau khi bạn bấm xác nhận đặt hàng (dạng <strong>DH-1xxx</strong>). Bạn cũng có thể tra cứu nhanh bằng số điện thoại người nhận!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsOrderTrackingOpen(false)}
+                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

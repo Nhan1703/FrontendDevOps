@@ -19,6 +19,8 @@ import { authController } from './controllers/auth.controller.js';
 import { categoryController } from './controllers/category.controller.js';
 import { bookController } from './controllers/book.controller.js';
 import { orderController } from './controllers/order.controller.js';
+import { reviewController } from './controllers/review.controller.js';
+import { couponController } from './controllers/coupon.controller.js';
 import { userRepository } from './repositories/user.repository.js';
 
 dotenv.config();
@@ -96,8 +98,30 @@ app.delete('/api/books/:id', authenticate, requireRoles('Admin'), (req, res, nex
 app.delete('/api/products/:id', authenticate, requireRoles('Admin'), (req, res, next) => bookController.delete(req, res, next));
 
 // ==============================================================================
-// ROUTE 5: CHECKOUT & ORDERS MODULE (ĐƠN HÀNG VỚI DATABASE TRANSACTION)
+// ROUTE 5: REVIEWS & RATINGS MODULE (ĐÁNH GIÁ SÁCH TỪ ĐỘC GIẢ)
 // ==============================================================================
+// Lấy danh sách đánh giá & thống kê sao của một cuốn sách (Công khai)
+app.get('/api/books/:id/reviews', (req, res, next) => reviewController.getByBook(req, res, next));
+app.get('/api/products/:id/reviews', (req, res, next) => reviewController.getByBook(req, res, next));
+// Gửi đánh giá mới cho một cuốn sách (Công khai hoặc Đã đăng nhập)
+app.post('/api/books/:id/reviews', (req, res, next) => reviewController.create(req, res, next));
+app.post('/api/products/:id/reviews', (req, res, next) => reviewController.create(req, res, next));
+
+// ==============================================================================
+// ROUTE 6: COUPONS & PROMOTIONS MODULE (MÃ GIẢM GIÁ & VOUCHER)
+// ==============================================================================
+// Xem danh sách các voucher đang hoạt động (Công khai)
+app.get('/api/coupons', (req, res, next) => couponController.getAll(req, res, next));
+// Kiểm tra hợp lệ và tính số tiền giảm của voucher (Công khai)
+app.post('/api/coupons/validate', (req, res, next) => couponController.validate(req, res, next));
+
+// ==============================================================================
+// ROUTE 7: CHECKOUT & ORDERS MODULE (ĐƠN HÀNG VỚI DATABASE TRANSACTION)
+// ==============================================================================
+// Tra cứu tiến trình vận đơn đơn hàng (Công khai, không cần đăng nhập)
+app.get('/api/orders/track/:query', (req, res, next) => orderController.trackOrder(req, res, next));
+app.get('/api/orders/track', (req, res, next) => orderController.trackOrder(req, res, next));
+
 // Tạo đơn hàng Checkout với Database Transaction đảm bảo ACID (Khóa tồn kho, Tính giá từ DB)
 app.post('/api/orders', optionalAuthenticate, (req, res, next) => orderController.checkout(req, res, next));
 app.post('/api/orders/checkout', optionalAuthenticate, (req, res, next) => orderController.checkout(req, res, next));
