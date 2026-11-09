@@ -129,9 +129,26 @@ async function runTests() {
   }
 
   // ==========================================
-  // SUITE 3: REVIEW & RATING CALCULATION
+  // SUITE 3: PAYMENT STATUS & INVOICE GENERATION
   // ==========================================
-  console.log('\n3. Kiểm thử Đánh giá sách & Tính điểm sao trung bình:');
+  console.log('\n3. Kiểm thử Cập nhật Thanh toán VietQR & Xuất hóa đơn:');
+  orderRepository.updatePaymentStatus = async (orderId, paymentStatus) => {
+    if (orderId === 'DH-1001') {
+      return { ...mockOrderDH1001, paymentStatus };
+    }
+    return null;
+  };
+
+  const updatedPay = await orderService.updatePaymentStatus('DH-1001', 'Paid');
+  assert(updatedPay && updatedPay.paymentStatus === 'Paid', 'Cập nhật trạng thái thanh toán sang "Paid" thành công');
+
+  const invoiceData = await orderService.getOrderInvoice('DH-1001');
+  assert(invoiceData && invoiceData.storeInfo && invoiceData.invoice.id === 'DH-1001', 'Truy xuất dữ liệu hóa đơn điện tử VAT thành công');
+
+  // ==========================================
+  // SUITE 4: REVIEW & RATING CALCULATION
+  // ==========================================
+  console.log('\n4. Kiểm thử Đánh giá sách & Tính điểm sao trung bình:');
   const sampleRatings = [5, 5, 4, 5, 4]; // avg = 4.6
   const calculatedAvg = Number((sampleRatings.reduce((a, b) => a + b, 0) / sampleRatings.length).toFixed(1));
   assert(calculatedAvg === 4.6, 'Công thức tính điểm trung bình sao hiển thị chuẩn xác 4.6/5 sao');
@@ -141,7 +158,7 @@ async function runTests() {
   if (failCount > 0) {
     process.exit(1);
   }
-  console.log(`🎉 TOÀN BỘ 10/10 TEST TÍNH NĂNG MỚI ĐỀU HOÀN THÀNH XUẤT SẮC!`);
+  console.log(`🎉 TOÀN BỘ CÁC BÀI TEST TÍNH NĂNG MỚI ĐỀU HOÀN THÀNH XUẤT SẮC!`);
 }
 
 runTests().catch(err => {

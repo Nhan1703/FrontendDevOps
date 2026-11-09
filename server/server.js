@@ -139,6 +139,13 @@ app.get('/api/orders/:id', authenticate, (req, res, next) => orderController.get
 app.put('/api/orders/:id/status', authenticate, requireRoles('Admin'), (req, res, next) => orderController.updateStatus(req, res, next));
 app.patch('/api/orders/:id/status', authenticate, requireRoles('Admin'), (req, res, next) => orderController.updateStatus(req, res, next));
 
+// Cập nhật trạng thái thanh toán đơn hàng (Ví dụ: Đã quét mã VietQR thành công)
+app.patch('/api/orders/:id/payment-status', (req, res, next) => orderController.updatePaymentStatus(req, res, next));
+app.put('/api/orders/:id/payment-status', (req, res, next) => orderController.updatePaymentStatus(req, res, next));
+
+// Xuất thông tin hóa đơn điện tử / phiếu giao hàng
+app.get('/api/orders/:id/invoice', (req, res, next) => orderController.getInvoice(req, res, next));
+
 // ==============================================================================
 // ROUTE 6: USERS MANAGEMENT (DÀNH CHO ADMIN QUẢN TRỊ NGƯỜI DÙNG)
 // ==============================================================================

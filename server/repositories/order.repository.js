@@ -85,6 +85,20 @@ export class OrderRepository {
   }
 
   /**
+   * Cập nhật trạng thái thanh toán đơn hàng (Unpaid, Paid, Refunded)
+   * @param {string} orderId
+   * @param {string} paymentStatus
+   * @returns {Promise<Order|null>}
+   */
+  async updatePaymentStatus(orderId, paymentStatus) {
+    return await Order.findOneAndUpdate(
+      { $or: [{ id: orderId }, { orderCode: orderId }] },
+      { $set: { paymentStatus } },
+      { new: true }
+    );
+  }
+
+  /**
    * Tra cứu đơn hàng theo Mã đơn hoặc Số điện thoại (dành cho tra cứu vận đơn)
    * @param {string} query
    * @returns {Promise<Order|null>}

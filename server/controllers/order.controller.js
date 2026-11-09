@@ -134,6 +134,48 @@ export class OrderController {
       });
     }
   }
+
+  /**
+   * [PATCH/PUT] /api/orders/:id/payment-status - Cập nhật trạng thái thanh toán (Paid, Unpaid, Refunded)
+   */
+  async updatePaymentStatus(req, res, next) {
+    try {
+      const orderId = req.params.id;
+      const { paymentStatus } = req.body || {};
+
+      if (!paymentStatus) {
+        return res.status(400).json({
+          success: false,
+          message: 'Vui lòng cung cấp trạng thái thanh toán ("paymentStatus")!',
+        });
+      }
+
+      const updated = await orderService.updatePaymentStatus(orderId, paymentStatus);
+      return res.status(200).json({
+        success: true,
+        message: `Đã cập nhật trạng thái thanh toán đơn ${orderId} sang "${paymentStatus}" thành công!`,
+        order: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * [GET] /api/orders/:id/invoice - Lấy dữ liệu in hóa đơn điện tử
+   */
+  async getInvoice(req, res, next) {
+    try {
+      const orderId = req.params.id;
+      const invoiceData = await orderService.getOrderInvoice(orderId);
+      return res.status(200).json({
+        success: true,
+        ...invoiceData,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const orderController = new OrderController();

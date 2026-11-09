@@ -356,6 +356,61 @@ export class OrderService {
       timeline,
     };
   }
+
+  /**
+   * Cập nhật trạng thái thanh toán đơn hàng (Unpaid, Paid, Refunded)
+   * @param {string} orderId
+   * @param {string} paymentStatus
+   * @returns {Promise<object>}
+   */
+  async updatePaymentStatus(orderId, paymentStatus) {
+    if (!orderId) {
+      const error = new Error('Vui lòng cung cấp mã đơn hàng!');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const validPaymentStatuses = ['Unpaid', 'Paid', 'Refunded'];
+    if (!validPaymentStatuses.includes(paymentStatus)) {
+      const error = new Error(`Trạng thái thanh toán không hợp lệ! Chấp nhận: ${validPaymentStatuses.join(', ')}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const updated = await orderRepository.updatePaymentStatus(orderId, paymentStatus);
+    if (!updated) {
+      const error = new Error(`Không tìm thấy đơn hàng ${orderId} để cập nhật thanh toán!`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return toOrderResponseDTO(updated);
+  }
+
+  /**
+   * Lấy dữ liệu chi tiết hóa đơn phục vụ in ấn chứng từ
+   * @param {string} orderId
+   * @returns {Promise<object>}
+   */
+  async getOrderInvoice(orderId) {
+    const order = await orderRepository.findByTrackingQuery(orderId);
+    if (!order) {
+      const error = new Error(`Không tìm thấy đơn hàng có mã ${orderId}!`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return {
+      storeInfo: {
+        name: 'NHÀ SÁCH TRỰC TUYẾN BOOKSTORE ST23B',
+        address: 'Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh',
+        hotline: '0917.714.595 (Trưởng nhóm: Đinh Ngọc Thế Nhân)',
+        email: 'support@bookstore.devops.st23b',
+        taxCode: '0315892461-001',
+      },
+      invoice: toOrderResponseDTO(order),
+    };
+  }
 }
 
 export const orderService = new OrderService();
