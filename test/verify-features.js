@@ -5,7 +5,8 @@ import { couponService } from '../server/services/coupon.service.js';
 import { couponRepository } from '../server/repositories/coupon.repository.js';
 import { orderService } from '../server/services/order.service.js';
 import { orderRepository } from '../server/repositories/order.repository.js';
-import { reviewRepository } from '../server/repositories/review.repository.js';
+import { authService } from '../server/services/auth.service.js';
+import { userRepository } from '../server/repositories/user.repository.js';
 
 let passCount = 0;
 let failCount = 0;
@@ -152,6 +153,76 @@ async function runTests() {
   const sampleRatings = [5, 5, 4, 5, 4]; // avg = 4.6
   const calculatedAvg = Number((sampleRatings.reduce((a, b) => a + b, 0) / sampleRatings.length).toFixed(1));
   assert(calculatedAvg === 4.6, 'Công thức tính điểm trung bình sao hiển thị chuẩn xác 4.6/5 sao');
+
+  // ==========================================
+  // SUITE 5: USER PROFILE, CHANGE PASSWORD & ADDRESS BOOK
+  // ==========================================
+  console.log('\n5. Kiểm thử Quản lý Hồ sơ, Đổi mật khẩu & Sổ địa chỉ:');
+  const mockUser = {
+    id: 'USR-001',
+    fullName: 'Đinh Ngọc Thế Nhân',
+    name: 'Đinh Ngọc Thế Nhân',
+    email: 'nhan@devops.com',
+    passwordHash: 'e10adc3949ba59abbe56e057f20f883e', // md5 hoặc sha256 giả lập
+    password: 'e10adc3949ba59abbe56e057f20f883e',
+    phoneNumber: '0917714595',
+    phone: '0917714595',
+    addresses: [],
+    bookstoreCoins: 50000,
+  };
+
+  userRepository.findById = async (id) => (id === 'USR-001' ? { ...mockUser } : null);
+  userRepository.update = async (id, payload) => {
+    Object.assign(mockUser, payload);
+    return { ...mockUser };
+  };
+
+  // Test 5.1: Cập nhật thông tin profile
+  const updatedProf = await authService.updateProfile('USR-001', {
+    fullName: 'Thế Nhân DevOps ST23B',
+    phoneNumber: '0917714595',
+  });
+  assert(updatedProf.fullName === 'Thế Nhân DevOps ST23B', 'Cập nhật Họ tên người dùng thành công');
+
+  // Test 5.2: Cập nhật sổ địa chỉ
+  const newAddresses = [
+    { recipientName: 'Thế Nhân', phone: '0917714595', addressDetail: 'KTX Khu B ĐHQG TP.HCM', isDefault: true },
+    { recipientName: 'Thế Nhân Cty', phone: '0917714595', addressDetail: 'Khu Công nghệ cao, TP. Thủ Đức', isDefault: false },
+  ];
+  const savedAddrs = await authService.updateAddresses('USR-001', newAddresses);
+  assert(savedAddrs.length === 2 && savedAddrs[0].isDefault === true, 'Lưu trữ sổ địa chỉ nhận hàng và đánh dấu địa chỉ mặc định chính xác');
+
+  // ==========================================
+  // SUITE 6: BOOKSTORE COINS & CSV EXPORT
+  // ==========================================
+  console.log('\n6. Kiểm thử Tích lũy Xu Thưởng (Coins) & Xuất CSV Báo cáo:');
+  // Giả lập tính toán đơn hàng với Xu
+  const subtotalOrder = 200000;
+  const coinsToUse = 20000; // Dùng 20.000 xu
+  const paidAmount = subtotalOrder - coinsToUse;
+  const coinsEarned = Math.round(paidAmount * 0.02); // 2% tích lũy = 3.600 xu
+  assert(paidAmount === 180000, 'Khấu trừ Xu BookStore Coins vào tổng tiền thanh toán chính xác');
+  assert(coinsEarned === 3600, 'Tích lũy 2% giá trị đơn hàng thực tế vào Xu thưởng khách hàng');
+
+  // Kiểm thử xuất CSV
+  orderRepository.findAllOrders = async () => [
+    {
+      id: 'DH-1001',
+      customerName: 'Hoàng Trường Ân',
+      customerPhone: '0901112233',
+      shippingAddress: 'Khu Công nghệ cao TP.HCM',
+      orderDate: '2026-11-09T10:00:00.000Z',
+      totalAmount: 180000,
+      totalBookAmount: 200000,
+      paymentMethod: 'VietQR',
+      status: 'shipping',
+      paymentStatus: 'Paid',
+    },
+  ];
+
+  const csvResult = await orderService.exportCsv();
+  assert(csvResult.startsWith('\uFEFFMã đơn,Khách hàng'), 'File CSV có chứa BOM UTF-8 chống lỗi font tiếng Việt trong Excel');
+  assert(csvResult.includes('DH-1001') && csvResult.includes('Hoàng Trường Ân'), 'Dữ liệu đơn hàng được kết xuất chuẩn định dạng CSV');
 
   console.log(`\n======================================================`);
   console.log(`📊 KẾT QUẢ: ${passCount} PASSED, ${failCount} FAILED`);

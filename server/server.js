@@ -58,6 +58,14 @@ app.post('/api/auth/register', (req, res, next) => authController.register(req, 
 app.post('/api/auth/login', (req, res, next) => authController.login(req, res, next));
 // Lấy thông tin tài khoản đang đăng nhập (Bảo vệ bởi JWT)
 app.get('/api/auth/me', authenticate, (req, res, next) => authController.getProfile(req, res, next));
+// Cập nhật thông tin hồ sơ tài khoản (Họ tên, SĐT)
+app.put('/api/auth/profile', authenticate, (req, res, next) => authController.updateProfile(req, res, next));
+// Đổi mật khẩu tài khoản khách hàng
+app.put('/api/auth/change-password', authenticate, (req, res, next) => authController.changePassword(req, res, next));
+// Lấy sổ địa chỉ giao hàng
+app.get('/api/auth/addresses', authenticate, (req, res, next) => authController.getAddresses(req, res, next));
+// Cập nhật sổ địa chỉ giao hàng
+app.put('/api/auth/addresses', authenticate, (req, res, next) => authController.updateAddresses(req, res, next));
 
 // ==============================================================================
 // ROUTE 3: CATEGORIES MODULE (QUẢN LÝ THỂ LOẠI SÁCH)
@@ -145,6 +153,9 @@ app.put('/api/orders/:id/payment-status', (req, res, next) => orderController.up
 
 // Xuất thông tin hóa đơn điện tử / phiếu giao hàng
 app.get('/api/orders/:id/invoice', (req, res, next) => orderController.getInvoice(req, res, next));
+
+// Xuất toàn bộ danh sách đơn hàng sang file CSV (Dành cho Quản trị viên & Kế toán)
+app.get('/api/orders/export/csv', (req, res, next) => orderController.exportCsv(req, res, next));
 
 // ==============================================================================
 // ROUTE 6: USERS MANAGEMENT (DÀNH CHO ADMIN QUẢN TRỊ NGƯỜI DÙNG)

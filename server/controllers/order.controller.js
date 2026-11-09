@@ -176,6 +176,21 @@ export class OrderController {
       next(error);
     }
   }
+
+  /**
+   * [GET] /api/orders/export/csv - Xuất danh sách toàn bộ đơn hàng sang file CSV
+   */
+  async exportCsv(req, res, next) {
+    try {
+      const csvData = await orderService.exportCsv();
+      const filename = `bookstore-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.status(200).send(csvData);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const orderController = new OrderController();

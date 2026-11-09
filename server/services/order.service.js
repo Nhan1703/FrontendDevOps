@@ -34,6 +34,7 @@ export class OrderService {
       paymentMethod,
       note,
       couponCode,
+      usedCoins,
       items,
     } = checkoutDTO;
 
@@ -160,7 +161,18 @@ export class OrderService {
         }
       }
 
-      const finalAmount = Math.max(0, calculatedTotalAmount - discountAmount);
+      // 4.1. Áp dụng Xu BookStore Coins (nếu khách hàng chọn dùng Xu)
+      const afterCouponAmount = Math.max(0, calculatedTotalAmount - discountAmount);
+      let coinsDiscount = 0;
+      const requestedCoins = Number(usedCoins);
+      if (!isNaN(requestedCoins) && requestedCoins > 0) {
+        coinsDiscount = Math.min(requestedCoins, afterCouponAmount);
+      }
+
+      const finalAmount = Math.max(0, afterCouponAmount - coinsDiscount);
+
+      // 4.2. Tính lượng Xu tích lũy mới cho đơn hàng (2% giá trị thanh toán thực tế)
+      const earnedCoins = Math.round(finalAmount * 0.02);
 
       // 5. Tạo bản ghi Đơn hàng chính (Order Header)
       const orderData = {
@@ -176,6 +188,9 @@ export class OrderService {
         totalBookAmount: calculatedTotalAmount,
         shippingFee: 0,
         discountAmount,
+        coinsDiscount,
+        earnedCoins,
+        usedCoins: coinsDiscount,
         couponCode: couponCode ? couponCode.toUpperCase() : null,
         status: 'pending',
         paymentMethod,
@@ -196,10 +211,14 @@ export class OrderService {
         useNativeTransaction ? session : null
       );
 
-      // 7. Cập nhật số lượng đơn hàng đã mua của User (nếu có UserId)
+      // 7. Cập nhật số lượng đơn hàng đã mua và Xu thưởng của User (nếu có UserId)
       if (userId) {
+        const netCoinsChange = earnedCoins - coinsDiscount;
         await userRepository.update(userId, {
-          $inc: { ordersCount: 1 },
+          $inc: {
+            ordersCount: 1,
+            bookstoreCoins: netCoinsChange,
+          },
         });
       }
 
@@ -410,6 +429,37 @@ export class OrderService {
       },
       invoice: toOrderResponseDTO(order),
     };
+  }
+
+  /**
+   * Xuất danh sách toàn bộ đơn hàng sang định dạng CSV (Hỗ trợ Excel tiếng Việt với BOM UTF-8)
+   * @returns {Promise<string>}
+   */
+  async exportCsv() {
+    const orders = await orderRepository.findAllOrders();
+
+    // Chuỗi tiêu đề cột CSV kèm ký tự BOM UTF-8 (\uFEFF)
+    let csv = '\uFEFFMã đơn,Khách hàng,Số điện thoại,Địa chỉ nhận hàng,Ngày đặt,Tổng tiền (VNĐ),Tiền sách (VNĐ),Giảm giá (VNĐ),Dùng Xu (VNĐ),Tích Xu,Phương thức TT,Trạng thái đơn,Trạng thái TT\n';
+
+    for (const ord of orders) {
+      const id = `"${(ord.id || ord.orderCode || '').replace(/"/g, '""')}"`;
+      const name = `"${(ord.customerName || '').replace(/"/g, '""')}"`;
+      const phone = `"${(ord.customerPhone || '').replace(/"/g, '""')}"`;
+      const address = `"${(ord.shippingAddress || ord.customerAddress || '').replace(/"/g, '""')}"`;
+      const date = `"${(ord.orderDate || ord.createdAt || '').slice(0, 19).replace('T', ' ')}"`;
+      const total = ord.totalAmount || 0;
+      const totalBook = ord.totalBookAmount || total;
+      const discount = ord.discountAmount || 0;
+      const usedCoins = ord.usedCoins || ord.coinsDiscount || 0;
+      const earnedCoins = ord.earnedCoins || 0;
+      const method = `"${(ord.paymentMethod || 'COD').replace(/"/g, '""')}"`;
+      const status = `"${(ord.status || 'pending').replace(/"/g, '""')}"`;
+      const payStatus = `"${(ord.paymentStatus || 'Unpaid').replace(/"/g, '""')}"`;
+
+      csv += `${id},${name},${phone},${address},${date},${total},${totalBook},${discount},${usedCoins},${earnedCoins},${method},${status},${payStatus}\n`;
+    }
+
+    return csv;
   }
 }
 

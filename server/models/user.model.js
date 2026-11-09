@@ -62,6 +62,22 @@ const userSchema = new mongoose.Schema(
       enum: ['active', 'locked'],
       default: 'active',
     },
+    // Sổ lưu trữ danh sách địa chỉ giao hàng của khách hàng
+    addresses: [
+      {
+        id: { type: String },
+        recipientName: { type: String },
+        phone: { type: String },
+        addressDetail: { type: String },
+        isDefault: { type: Boolean, default: false },
+      },
+    ],
+    // Số dư Xu thưởng BookStore Coins (Tích 2% mỗi đơn, 1 xu = 1 VNĐ)
+    bookstoreCoins: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     // Ngày giờ tạo tài khoản
     createdAt: {
       type: String,
