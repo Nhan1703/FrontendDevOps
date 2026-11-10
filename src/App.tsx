@@ -3883,6 +3883,7 @@ export default function App() {
                 d.setDate(d.getDate() - (6 - i));
                 const dateStr = d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
                 return {
+                  dateObj: d,
                   dateStr,
                   dayName: ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d.getDay()],
                   total: 0,
@@ -3890,22 +3891,53 @@ export default function App() {
                 };
               });
 
-              // Phân bổ đơn hàng vào 7 ngày
+              // Phân bổ đơn hàng vào 7 ngày theo ngày thực tế
               validOrders.forEach((o) => {
-                const orderDateStr = (o.orderDate || o.createdAt || "").slice(0, 10);
-                // Giả lập phân bổ cho các cột hiển thị đẹp mắt
-                const randomDayIdx = Math.abs((o.id.charCodeAt(o.id.length - 1) || 0) % 7);
-                last7Days[randomDayIdx].total += o.totalAmount;
-                last7Days[randomDayIdx].count += 1;
+                const orderRawDate = o.createdAt || o.orderDate || "";
+                const datePart = orderRawDate.trim().split(" ")[0] || "";
+                const dateParts = datePart.split(/[/-]/);
+                let orderD: Date | null = null;
+                if (dateParts.length === 3) {
+                  if (dateParts[0].length === 4) {
+                    orderD = new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2]));
+                  } else {
+                    orderD = new Date(Number(dateParts[2]), Number(dateParts[1]) - 1, Number(dateParts[0]));
+                  }
+                }
+
+                let matched = false;
+                if (orderD && !isNaN(orderD.getTime())) {
+                  for (let i = 0; i < last7Days.length; i++) {
+                    const target = last7Days[i].dateObj;
+                    if (
+                      target.getDate() === orderD.getDate() &&
+                      target.getMonth() === orderD.getMonth() &&
+                      target.getFullYear() === orderD.getFullYear()
+                    ) {
+                      last7Days[i].total += o.totalAmount;
+                      last7Days[i].count += 1;
+                      matched = true;
+                      break;
+                    }
+                  }
+                }
+
+                // Nếu đơn hàng cũ hơn 7 ngày, phân bổ đều vào các ngày trước đó trong tuần
+                if (!matched) {
+                  const fallbackIdx = Math.abs((o.id.charCodeAt(o.id.length - 1) || 0) % 6);
+                  last7Days[fallbackIdx].total += o.totalAmount;
+                  last7Days[fallbackIdx].count += 1;
+                }
               });
 
-              // Đảm bảo có ít nhất doanh số thực tế của đơn hàng gần nhất
+              // Đảm bảo có ít nhất doanh số thực tế của đơn hàng gần nhất nếu tất cả đều là 0
               if (last7Days.every((d) => d.total === 0) && totalRevenue > 0) {
                 last7Days[6].total = totalRevenue;
                 last7Days[6].count = validOrders.length;
               }
 
               const maxDayRevenue = Math.max(...last7Days.map((d) => d.total), 1);
+              const sevenDaysTotal = last7Days.reduce((sum, d) => sum + d.total, 0);
 
               // Thống kê doanh thu theo từng Danh mục sách
               const categoryRevenueMap: Record<string, number> = {};
@@ -4016,33 +4048,55 @@ export default function App() {
 
                   {/* Khối Biểu Đồ Doanh Thu 7 Ngày Gần Nhất */}
                   <div className="bg-white p-5 sm:p-6 rounded-2xl border border-neutral-200/80 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 pb-3 gap-2">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-emerald-600" />
                         <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
                           Biểu Đồ Doanh Thu 7 Ngày Gần Nhất
                         </h3>
                       </div>
-                      <span className="text-[11px] text-neutral-400">Đơn vị: VNĐ</span>
+                      <div className="flex items-center gap-3 text-[11px] text-neutral-500 font-medium">
+                        <span>Tổng 7 ngày: <strong className="text-emerald-700 font-bold">{formatVND(sevenDaysTotal)}</strong></span>
+                        <span className="text-neutral-300">•</span>
+                        <span>Đơn vị: VNĐ</span>
+                      </div>
                     </div>
 
                     {/* Biểu đồ cột tương tác trực quan */}
                     <div className="pt-6 pb-2">
-                      <div className="h-44 sm:h-52 flex items-end justify-between gap-2 sm:gap-4 px-2 sm:px-6 border-b border-neutral-200">
+                      <div className="h-48 sm:h-56 flex items-end justify-between gap-2 sm:gap-4 px-2 sm:px-6 border-b border-neutral-200">
                         {last7Days.map((day, idx) => {
-                          const heightPercent = maxDayRevenue > 0 ? Math.max(12, Math.round((day.total / maxDayRevenue) * 100)) : 12;
+                          const heightPercent = maxDayRevenue > 0 ? Math.round((day.total / maxDayRevenue) * 100) : 0;
+                          const displayHeight = day.total > 0 ? Math.max(8, heightPercent) : 0;
+
                           return (
-                            <div key={idx} className="flex-1 flex flex-col items-center group relative">
+                            <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center group relative">
                               {/* Tooltip hiển thị số tiền khi hover */}
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-10 bg-neutral-900 text-white text-[10px] font-bold py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap shadow-md z-20">
-                                {formatVND(day.total)} ({day.count} đơn)
+                              <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none absolute -top-12 z-20 bg-neutral-900 text-white text-[10px] font-bold py-1.5 px-2.5 rounded-lg whitespace-nowrap shadow-xl flex flex-col items-center">
+                                <span>{formatVND(day.total)}</span>
+                                <span className="text-[9px] text-neutral-300 font-normal">({day.count} đơn hàng)</span>
+                                <div className="w-2 h-2 bg-neutral-900 rotate-45 -mb-1 mt-0.5"></div>
                               </div>
 
-                              {/* Cột Bar */}
-                              <div className="w-full max-w-[42px] bg-neutral-100 rounded-t-xl overflow-hidden flex items-end justify-center relative">
+                              {/* Nhãn số tiền mini trên đỉnh cột khi > 0 */}
+                              {day.total > 0 && (
+                                <span className="text-[9px] font-extrabold text-neutral-600 mb-1.5 hidden sm:block truncate max-w-full text-center">
+                                  {day.total >= 1000000
+                                    ? `${(day.total / 1000000).toFixed(1)}tr`
+                                    : `${Math.round(day.total / 1000)}k`}
+                                </span>
+                              )}
+
+                              {/* Cột Bar Rãnh Xám (Track) */}
+                              <div className="w-full max-w-[42px] h-full bg-neutral-100/90 hover:bg-neutral-200/70 rounded-t-xl overflow-hidden flex items-end justify-center relative transition-colors cursor-pointer">
+                                {/* Thanh Bar Gradient Doanh Thu */}
                                 <div
-                                  className="w-full bg-gradient-to-t from-emerald-600 to-indigo-600 rounded-t-xl transition-all duration-500 group-hover:from-emerald-500 group-hover:to-indigo-500"
-                                  style={{ height: `${heightPercent}%` }}
+                                  className={`w-full rounded-t-xl transition-all duration-700 ease-out ${
+                                    day.total > 0
+                                      ? "bg-gradient-to-t from-emerald-600 via-teal-500 to-indigo-600 group-hover:from-emerald-500 group-hover:to-indigo-500 shadow-xs"
+                                      : "bg-transparent"
+                                  }`}
+                                  style={{ height: `${displayHeight}%` }}
                                 ></div>
                               </div>
                             </div>
@@ -4051,10 +4105,12 @@ export default function App() {
                       </div>
 
                       {/* Nhãn ngày bên dưới biểu đồ */}
-                      <div className="flex items-center justify-between gap-2 sm:gap-4 px-2 sm:px-6 pt-2 text-[11px] text-neutral-500 font-semibold">
+                      <div className="flex items-center justify-between gap-2 sm:gap-4 px-2 sm:px-6 pt-3 text-[11px] text-neutral-500 font-semibold">
                         {last7Days.map((day, idx) => (
                           <div key={idx} className="flex-1 text-center">
-                            <span className="block font-bold text-neutral-800">{day.dayName}</span>
+                            <span className={`block font-bold ${idx === 6 ? "text-indigo-600 font-extrabold" : "text-neutral-800"}`}>
+                              {day.dayName} {idx === 6 ? "(Hôm nay)" : ""}
+                            </span>
                             <span className="text-[10px] text-neutral-400">{day.dateStr}</span>
                           </div>
                         ))}
