@@ -161,18 +161,8 @@ export class OrderService {
         }
       }
 
-      // 4.1. Áp dụng Xu BookStore Coins (nếu khách hàng chọn dùng Xu)
-      const afterCouponAmount = Math.max(0, calculatedTotalAmount - discountAmount);
-      let coinsDiscount = 0;
-      const requestedCoins = Number(usedCoins);
-      if (!isNaN(requestedCoins) && requestedCoins > 0) {
-        coinsDiscount = Math.min(requestedCoins, afterCouponAmount);
-      }
-
-      const finalAmount = Math.max(0, afterCouponAmount - coinsDiscount);
-
-      // 4.2. Tính lượng Xu tích lũy mới cho đơn hàng (2% giá trị thanh toán thực tế)
-      const earnedCoins = Math.round(finalAmount * 0.02);
+      // 4. Áp dụng giảm giá Voucher và tính tổng số tiền thanh toán thực tế
+      const finalAmount = Math.max(0, calculatedTotalAmount - discountAmount);
 
       // 5. Tạo bản ghi Đơn hàng chính (Order Header)
       const orderData = {
@@ -188,9 +178,9 @@ export class OrderService {
         totalBookAmount: calculatedTotalAmount,
         shippingFee: 0,
         discountAmount,
-        coinsDiscount,
-        earnedCoins,
-        usedCoins: coinsDiscount,
+        coinsDiscount: 0,
+        earnedCoins: 0,
+        usedCoins: 0,
         couponCode: couponCode ? couponCode.toUpperCase() : null,
         status: 'pending',
         paymentMethod,
@@ -211,13 +201,11 @@ export class OrderService {
         useNativeTransaction ? session : null
       );
 
-      // 7. Cập nhật số lượng đơn hàng đã mua và Xu thưởng của User (nếu có UserId)
+      // 7. Cập nhật số lượng đơn hàng đã mua của User (nếu có UserId)
       if (userId) {
-        const netCoinsChange = earnedCoins - coinsDiscount;
         await userRepository.update(userId, {
           $inc: {
             ordersCount: 1,
-            bookstoreCoins: netCoinsChange,
           },
         });
       }

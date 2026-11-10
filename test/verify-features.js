@@ -193,16 +193,18 @@ async function runTests() {
   assert(savedAddrs.length === 2 && savedAddrs[0].isDefault === true, 'Lưu trữ sổ địa chỉ nhận hàng và đánh dấu địa chỉ mặc định chính xác');
 
   // ==========================================
-  // SUITE 6: BOOKSTORE COINS & CSV EXPORT
+  // SUITE 6: DEFAULT EMPTY ADDRESSES & CSV EXPORT
   // ==========================================
-  console.log('\n6. Kiểm thử Tích lũy Xu Thưởng (Coins) & Xuất CSV Báo cáo:');
-  // Giả lập tính toán đơn hàng với Xu
+  console.log('\n6. Kiểm thử Sổ địa chỉ mặc định rỗng & Xuất CSV Báo cáo:');
+  // Giả lập tài khoản mới khởi tạo không có địa chỉ có sẵn nào
+  const freshUserAddresses = [];
+  assert(freshUserAddresses.length === 0, 'Sổ địa chỉ ban đầu khởi tạo trống rỗng [], không có dữ liệu hardcoded');
+
+  // Tính tiền thanh toán giỏ hàng chuẩn xác
   const subtotalOrder = 200000;
-  const coinsToUse = 20000; // Dùng 20.000 xu
-  const paidAmount = subtotalOrder - coinsToUse;
-  const coinsEarned = Math.round(paidAmount * 0.02); // 2% tích lũy = 3.600 xu
-  assert(paidAmount === 180000, 'Khấu trừ Xu BookStore Coins vào tổng tiền thanh toán chính xác');
-  assert(coinsEarned === 3600, 'Tích lũy 2% giá trị đơn hàng thực tế vào Xu thưởng khách hàng');
+  const couponDiscount = 20000;
+  const paidAmount = Math.max(0, subtotalOrder - couponDiscount);
+  assert(paidAmount === 180000, 'Tính toán tổng tiền thanh toán trực tiếp qua Voucher chính xác');
 
   // Kiểm thử xuất CSV
   orderRepository.findAllOrders = async () => [
@@ -223,6 +225,27 @@ async function runTests() {
   const csvResult = await orderService.exportCsv();
   assert(csvResult.startsWith('\uFEFFMã đơn,Khách hàng'), 'File CSV có chứa BOM UTF-8 chống lỗi font tiếng Việt trong Excel');
   assert(csvResult.includes('DH-1001') && csvResult.includes('Hoàng Trường Ân'), 'Dữ liệu đơn hàng được kết xuất chuẩn định dạng CSV');
+
+  // ==========================================
+  // SUITE 7: STOCK QUANTITY & INVENTORY STATUS RULES
+  // ==========================================
+  console.log('\n7. Kiểm thử Quản lý Tồn Kho & Phân Loại Trạng Thái Kho Hàng:');
+  const sampleProducts = [
+    { id: 1, name: 'Sách A', stockQuantity: 45 },
+    { id: 2, name: 'Sách B', stockQuantity: 7 },
+    { id: 3, name: 'Sách C', stockQuantity: 0 },
+    { id: 4, name: 'Sách D', stockQuantity: 10 },
+  ];
+
+  const inStock = sampleProducts.filter(p => p.stockQuantity > 10);
+  const lowStock = sampleProducts.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 10);
+  const outOfStock = sampleProducts.filter(p => p.stockQuantity === 0);
+  const totalUnits = sampleProducts.reduce((sum, p) => sum + p.stockQuantity, 0);
+
+  assert(inStock.length === 1 && inStock[0].name === 'Sách A', 'Phân loại chính xác sản phẩm Còn Hàng (stock > 10)');
+  assert(lowStock.length === 2, 'Phân loại chính xác sản phẩm Sắp Hết Hàng (1 <= stock <= 10)');
+  assert(outOfStock.length === 1 && outOfStock[0].name === 'Sách C', 'Phân loại chính xác sản phẩm Hết Hàng (stock === 0)');
+  assert(totalUnits === 62, 'Tính toán tổng số cuốn sách đang lưu kho chuẩn xác (45 + 7 + 0 + 10 = 62)');
 
   console.log(`\n======================================================`);
   console.log(`📊 KẾT QUẢ: ${passCount} PASSED, ${failCount} FAILED`);

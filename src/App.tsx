@@ -64,7 +64,6 @@ import {
   Download,
   ExternalLink,
   ArrowLeft,
-  Coins,
   KeyRound,
 } from "lucide-react";
 
@@ -93,6 +92,12 @@ export interface Product {
 
 // Hàm chuẩn hóa dữ liệu sản phẩm, tránh lỗi crash màn hình trắng khi thiếu specs/colors
 export const normalizeProduct = (p: any): Product => {
+  const stock =
+    p.stockQuantity !== undefined
+      ? Number(p.stockQuantity)
+      : p.stock !== undefined
+      ? Number(p.stock)
+      : (p.id && p.id % 7 === 0 ? 0 : p.id && p.id % 4 === 0 ? 6 : 45);
   const colors =
     Array.isArray(p.colors) && p.colors.length > 0
       ? p.colors
@@ -103,7 +108,7 @@ export const normalizeProduct = (p: any): Product => {
       : [
           `Tác giả: ${p.author || "Nhiều tác giả"}`,
           `Thể loại: ${p.category || "Sách tham khảo"}`,
-          `Tồn kho: ${p.stockQuantity ?? 50} cuốn`,
+          `Tồn kho: ${stock} cuốn`,
           `Mã ISBN: ${p.isbn || "978-604-0012"}`,
           "Hình thức: In chất lượng cao, kèm Bookmark",
         ];
@@ -113,6 +118,7 @@ export const normalizeProduct = (p: any): Product => {
     price: Number(p.price) || 0,
     originalPrice:
       Number(p.originalPrice) || Math.round((Number(p.price) || 100000) * 1.25),
+    stockQuantity: stock,
     rating: Number(p.rating) || 5.0,
     reviewsCount: Number(p.reviewsCount) || 100,
     colors,
@@ -166,7 +172,6 @@ export interface UserProfile {
   phone?: string;
   avatar?: string;
   role?: "admin" | "user";
-  bookstoreCoins?: number;
   addresses?: AddressItem[];
 }
 
@@ -1271,6 +1276,7 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [adminSearch, setAdminSearch] = useState("");
   const [adminCategoryFilter, setAdminCategoryFilter] = useState("Tất cả");
+  const [adminStockFilter, setAdminStockFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all");
 
   // Product Form state
   const [formName, setFormName] = useState("");
@@ -1278,6 +1284,7 @@ export default function App() {
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [formPrice, setFormPrice] = useState("");
   const [formOriginalPrice, setFormOriginalPrice] = useState("");
+  const [formStockQuantity, setFormStockQuantity] = useState<string>("50");
   const [formImage, setFormImage] = useState("");
   const [formTag, setFormTag] = useState("");
   const [isCustomTag, setIsCustomTag] = useState(false);
@@ -1390,51 +1397,62 @@ export default function App() {
   // ================= TÌM KIẾM THÔNG MINH (LIVE SEARCH AUTOCOMPLETE) =================
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
 
-  // ================= QUẢN LÝ HỒ SƠ & SỔ ĐỊA CHỈ & XU THƯỞNG =================
+  // ================= QUẢN LÝ HỒ SƠ & SỔ ĐỊA CHỈ KHÁCH HÀNG =================
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
-  const [profileTab, setProfileTab] = useState<"info" | "addresses" | "coins" | "password">("info");
+  const [profileTab, setProfileTab] = useState<"info" | "addresses" | "password">("info");
 
-  // Số dư Xu BookStore Coins (1 Xu = 1 VNĐ, lưu trữ theo email tài khoản)
-  const [customerCoins, setCustomerCoins] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const savedCoins = localStorage.getItem("bookstore_coins_current");
-      if (savedCoins) return Number(savedCoins) || 0;
-    }
-    return 25000; // Tặng sẵn 25.000 Xu chào mừng khách hàng
-  });
+  // Hàm tiện ích lấy khóa lưu trữ localStorage cho sổ địa chỉ theo tài khoản người dùng
+  const getAddressStorageKey = (email?: string) => {
+    const targetEmail = email || customerUser?.email;
+    return targetEmail ? `bookstore_addresses_${targetEmail.toLowerCase()}` : "bookstore_addresses";
+  };
 
-  // Checkbox dùng xu để trừ tiền khi Checkout
-  const [isUsingCoins, setIsUsingCoins] = useState<boolean>(false);
-
-  // Sổ địa chỉ giao hàng của khách
+  // Sổ địa chỉ giao hàng của khách - Khởi tạo mặc định là mảng rỗng [] (không có dữ liệu giả lập có sẵn)
   const [customerAddresses, setCustomerAddresses] = useState<AddressItem[]>(() => {
     if (typeof window !== "undefined") {
+      // Dọn sạch dữ liệu cũ hardcoded nếu còn sót lại trong cache
+      const legacy = localStorage.getItem("bookstore_addresses");
+      if (legacy && (legacy.includes("Đinh Ngọc Thế Nhân") || legacy.includes("ADDR-1"))) {
+        localStorage.removeItem("bookstore_addresses");
+      }
       const saved = localStorage.getItem("bookstore_addresses");
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
-          console.error(e);
+          console.error("Lỗi parse địa chỉ ban đầu:", e);
         }
       }
     }
-    return [
-      {
-        id: "ADDR-1",
-        recipientName: "Đinh Ngọc Thế Nhân",
-        phone: "0917714595",
-        addressDetail: "Khu Công nghệ cao, TP. Thủ Đức, TP. Hồ Chí Minh",
-        isDefault: true,
-      },
-      {
-        id: "ADDR-2",
-        recipientName: "Thế Nhân (KTX)",
-        phone: "0917714595",
-        addressDetail: "KTX Khu B ĐHQG TP.HCM, Phường Linh Trung, Thủ Đức",
-        isDefault: false,
-      },
-    ];
+    return []; // Mặc định sổ địa chỉ hoàn toàn trống rỗng
   });
+
+  // Tự động tải sổ địa chỉ theo từng tài khoản khi khách hàng đăng nhập/thay đổi
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Quét sạch cache cũ nếu chứa thông tin mẫu hardcoded
+    const legacy = localStorage.getItem("bookstore_addresses");
+    if (legacy && (legacy.includes("Đinh Ngọc Thế Nhân") || legacy.includes("ADDR-1"))) {
+      localStorage.removeItem("bookstore_addresses");
+    }
+
+    if (customerUser?.email) {
+      const userKey = `bookstore_addresses_${customerUser.email.toLowerCase()}`;
+      const savedUserAddrs = localStorage.getItem(userKey);
+      if (savedUserAddrs) {
+        try {
+          const parsed = JSON.parse(savedUserAddrs);
+          setCustomerAddresses(Array.isArray(parsed) ? parsed : []);
+          return;
+        } catch (e) {
+          console.error("Lỗi parse sổ địa chỉ tài khoản:", e);
+        }
+      }
+      setCustomerAddresses([]);
+    }
+  }, [customerUser?.email]);
 
   // State nhập liệu thêm địa chỉ mới
   const [newAddrRecipient, setNewAddrRecipient] = useState<string>("");
@@ -1720,7 +1738,7 @@ export default function App() {
         updated = updated.map((a) => ({ ...a, isDefault: false }));
       }
       updated.push(newAddressItem);
-      localStorage.setItem("bookstore_addresses", JSON.stringify(updated));
+      localStorage.setItem(getAddressStorageKey(), JSON.stringify(updated));
       return updated;
     });
 
@@ -1739,7 +1757,7 @@ export default function App() {
         ...a,
         isDefault: a.id === addressId,
       }));
-      localStorage.setItem("bookstore_addresses", JSON.stringify(updated));
+      localStorage.setItem(getAddressStorageKey(), JSON.stringify(updated));
       return updated;
     });
     showToast("Đã cập nhật địa chỉ giao hàng mặc định!");
@@ -1753,7 +1771,7 @@ export default function App() {
       if (updated.length > 0 && !updated.some((a) => a.isDefault)) {
         updated[0].isDefault = true;
       }
-      localStorage.setItem("bookstore_addresses", JSON.stringify(updated));
+      localStorage.setItem(getAddressStorageKey(), JSON.stringify(updated));
       return updated;
     });
     showToast("Đã xóa địa chỉ khỏi sổ!");
@@ -1949,6 +1967,12 @@ export default function App() {
 
   // Thêm vào giỏ hàng
   const addToCart = (product: Product, color: string, quantity: number) => {
+    // Chặn đặt mua nếu sản phẩm đã hết hàng trong kho
+    if (product.stockQuantity !== undefined && product.stockQuantity === 0) {
+      showToast(`Cuốn sách "${product.name}" hiện đã tạm hết hàng trong kho!`, "error");
+      return;
+    }
+
     setCart((prev) => {
       const existIndex = prev.findIndex(
         (item) => item.id === product.id && item.selectedColor === color
@@ -2061,7 +2085,7 @@ export default function App() {
     setStorePage(1);
   }, [selectedCategory, searchQuery, wishlist, priceRangeFilter, ratingFilter, inStockOnly, storeSortBy]);
 
-  // Lọc sản phẩm trong Admin
+  // Lọc sản phẩm trong Admin theo Danh mục, Từ khóa và Trạng thái kho hàng
   const adminFilteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchCat =
@@ -2069,9 +2093,20 @@ export default function App() {
       const matchSearch =
         p.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
         p.category.toLowerCase().includes(adminSearch.toLowerCase());
-      return matchCat && matchSearch;
+
+      const stock = p.stockQuantity !== undefined ? p.stockQuantity : 50;
+      let matchStock = true;
+      if (adminStockFilter === "in_stock") {
+        matchStock = stock > 10;
+      } else if (adminStockFilter === "low_stock") {
+        matchStock = stock > 0 && stock <= 10;
+      } else if (adminStockFilter === "out_of_stock") {
+        matchStock = stock === 0;
+      }
+
+      return matchCat && matchSearch && matchStock;
     });
-  }, [products, adminCategoryFilter, adminSearch]);
+  }, [products, adminCategoryFilter, adminSearch, adminStockFilter]);
 
   // Phân trang Admin Products: 8 sản phẩm / trang
   const adminTotalPages = Math.ceil(adminFilteredProducts.length / ADMIN_ITEMS_PER_PAGE) || 1;
@@ -2082,7 +2117,16 @@ export default function App() {
 
   useEffect(() => {
     setAdminProductPage(1);
-  }, [adminCategoryFilter, adminSearch]);
+  }, [adminCategoryFilter, adminSearch, adminStockFilter]);
+
+  // Thống kê tổng hợp số lượng sản phẩm theo trạng thái tồn kho
+  const inStockCount = useMemo(() => products.filter((p) => (p.stockQuantity !== undefined ? p.stockQuantity : 50) > 10).length, [products]);
+  const lowStockCount = useMemo(() => products.filter((p) => {
+    const s = p.stockQuantity !== undefined ? p.stockQuantity : 50;
+    return s > 0 && s <= 10;
+  }).length, [products]);
+  const outOfStockCount = useMemo(() => products.filter((p) => (p.stockQuantity !== undefined ? p.stockQuantity : 50) === 0).length, [products]);
+  const totalStockUnits = useMemo(() => products.reduce((sum, p) => sum + (p.stockQuantity !== undefined ? p.stockQuantity : 50), 0), [products]);
 
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalCartPrice = cart.reduce(
@@ -2138,13 +2182,8 @@ export default function App() {
     }
   }, [appliedCoupon, totalCartPrice]);
 
-  // Số xu tối đa có thể áp dụng cho đơn hàng hiện tại
-  const afterCouponTotal = Math.max(0, totalCartPrice - couponDiscountAmount);
-  const maxCoinsUsable = Math.min(customerCoins, afterCouponTotal);
-  const coinsDeduction = isUsingCoins ? maxCoinsUsable : 0;
-
-  // Tổng số tiền thanh toán cuối cùng sau khi trừ Voucher và Xu BookStore
-  const finalPayableAmount = Math.max(0, afterCouponTotal - coinsDeduction);
+  // Tổng số tiền thanh toán cuối cùng sau khi trừ Voucher (đã loại bỏ hệ sinh thái Xu)
+  const finalPayableAmount = Math.max(0, totalCartPrice - couponDiscountAmount);
 
   const formatVND = (num: number) => {
     return num.toLocaleString("vi-VN") + "đ";
@@ -2158,6 +2197,7 @@ export default function App() {
     setIsCustomCategory(false);
     setFormPrice("");
     setFormOriginalPrice("");
+    setFormStockQuantity("50");
     setFormImage(SAMPLE_IMAGE_PRESETS[1].url);
     setFormTag("Mới");
     setIsCustomTag(false);
@@ -2176,6 +2216,7 @@ export default function App() {
     setIsCustomCategory(!DEFAULT_CATEGORIES.includes(p.category));
     setFormPrice(p.price.toString());
     setFormOriginalPrice(p.originalPrice ? p.originalPrice.toString() : "");
+    setFormStockQuantity(p.stockQuantity !== undefined ? p.stockQuantity.toString() : "50");
     setFormImage(p.image);
     setFormTag(p.tag || "");
     setIsCustomTag(Boolean(p.tag && !PRESET_TAGS.some((t) => t.value === p.tag)));
@@ -2227,10 +2268,19 @@ export default function App() {
 
     const ratingNum = Math.min(5, Math.max(0, parseFloat(formRating) || 0));
     const reviewsNum = Math.max(0, parseInt(formReviewsCount, 10) || 0);
+    const stockNum = Math.max(0, parseInt(formStockQuantity, 10) || 0);
 
-    const specsArr = formSpecs
+    let specsArr = formSpecs
       ? formSpecs.split(",").map((s) => s.trim()).filter(Boolean)
       : ["Tác giả: Nhiều tác giả", "NXB: NXB Tri Thức", "Năm XB: 2024"];
+
+    // Cập nhật hoặc bổ sung thông số tồn kho trong specs
+    const stockSpecIdx = specsArr.findIndex((s) => s.toLowerCase().startsWith("tồn kho:"));
+    if (stockSpecIdx >= 0) {
+      specsArr[stockSpecIdx] = `Tồn kho: ${stockNum} cuốn`;
+    } else {
+      specsArr.push(`Tồn kho: ${stockNum} cuốn`);
+    }
 
     const colorsArr = formColors
       ? formColors.split(",").map((c) => c.trim()).filter(Boolean)
@@ -2244,6 +2294,7 @@ export default function App() {
         category: formCategory.trim() || "Công nghệ thông tin",
         price: priceNum,
         originalPrice: origPriceNum,
+        stockQuantity: stockNum,
         rating: ratingNum,
         reviewsCount: reviewsNum,
         image: formImage.trim() || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
@@ -2274,6 +2325,7 @@ export default function App() {
         category: formCategory.trim() || "Công nghệ thông tin",
         price: priceNum,
         originalPrice: origPriceNum,
+        stockQuantity: stockNum,
         rating: ratingNum,
         reviewsCount: reviewsNum,
         image: formImage.trim() || "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
@@ -2947,35 +2999,82 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Quick Stats Grid */}
+                {/* Quick Stats Grid - Thống Kê Tổng Quan Kho Hàng & Trạng Thái */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                  <div className="bg-white p-4 rounded-xl border border-neutral-200/80 shadow-sm">
-                    <div className="text-[11px] font-semibold text-neutral-400 uppercase">Tổng Sản Phẩm</div>
+                  {/* Thẻ 1: Tổng đầu sách & Tổng cuốn trong kho */}
+                  <div
+                    onClick={() => setAdminStockFilter("all")}
+                    className={`bg-white p-4 rounded-xl border transition-all cursor-pointer shadow-sm hover:border-neutral-900 ${
+                      adminStockFilter === "all" ? "ring-2 ring-neutral-900 border-neutral-900" : "border-neutral-200/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-neutral-400 uppercase">Tổng Sản Phẩm</div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700">Tất cả</span>
+                    </div>
                     <div className="text-2xl font-extrabold text-neutral-950 mt-1">{products.length}</div>
+                    <span className="text-[10px] text-neutral-400 mt-1 block">
+                      Tổng {totalStockUnits.toLocaleString("vi-VN")} cuốn trong kho
+                    </span>
                   </div>
-                  <div className="bg-white p-4 rounded-xl border border-neutral-200/80 shadow-sm">
-                    <div className="text-[11px] font-semibold text-neutral-400 uppercase">Danh Mục</div>
-                    <div className="text-2xl font-extrabold text-neutral-950 mt-1">{categories.length - 1}</div>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-neutral-200/80 shadow-sm">
-                    <div className="text-[11px] font-semibold text-neutral-400 uppercase">Giá Thấp Nhất</div>
-                    <div className="text-2xl font-extrabold text-neutral-950 mt-1">
-                      {products.length > 0 ? formatVND(Math.min(...products.map((p) => p.price))) : "0đ"}
+
+                  {/* Thẻ 2: Còn hàng (Dồi dào) */}
+                  <div
+                    onClick={() => setAdminStockFilter("in_stock")}
+                    className={`bg-white p-4 rounded-xl border transition-all cursor-pointer shadow-sm hover:border-emerald-500 ${
+                      adminStockFilter === "in_stock" ? "ring-2 ring-emerald-600 border-emerald-600 bg-emerald-50/20" : "border-neutral-200/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-emerald-600 uppercase">Còn Hàng</div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Dồi dào</span>
                     </div>
+                    <div className="text-2xl font-extrabold text-emerald-700 mt-1">{inStockCount}</div>
+                    <span className="text-[10px] text-neutral-400 mt-1 block">
+                      Tồn kho &gt; 10 cuốn (sẵn sàng giao)
+                    </span>
                   </div>
-                  <div className="bg-white p-4 rounded-xl border border-neutral-200/80 shadow-sm">
-                    <div className="text-[11px] font-semibold text-neutral-400 uppercase">Giá Cao Nhất</div>
-                    <div className="text-2xl font-extrabold text-neutral-950 mt-1">
-                      {products.length > 0 ? formatVND(Math.max(...products.map((p) => p.price))) : "0đ"}
+
+                  {/* Thẻ 3: Sắp hết hàng (Cảnh báo cần nhập) */}
+                  <div
+                    onClick={() => setAdminStockFilter("low_stock")}
+                    className={`bg-white p-4 rounded-xl border transition-all cursor-pointer shadow-sm hover:border-amber-500 ${
+                      adminStockFilter === "low_stock" ? "ring-2 ring-amber-600 border-amber-600 bg-amber-50/20" : "border-neutral-200/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-amber-600 uppercase">Sắp Hết Hàng</div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 animate-pulse">Cảnh báo</span>
                     </div>
+                    <div className="text-2xl font-extrabold text-amber-700 mt-1">{lowStockCount}</div>
+                    <span className="text-[10px] text-neutral-400 mt-1 block">
+                      Tồn kho 1 - 10 cuốn (cần nhập thêm)
+                    </span>
+                  </div>
+
+                  {/* Thẻ 4: Hết hàng (Tạm ngưng bán) */}
+                  <div
+                    onClick={() => setAdminStockFilter("out_of_stock")}
+                    className={`bg-white p-4 rounded-xl border transition-all cursor-pointer shadow-sm hover:border-rose-500 ${
+                      adminStockFilter === "out_of_stock" ? "ring-2 ring-rose-600 border-rose-600 bg-rose-50/20" : "border-neutral-200/80"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] font-semibold text-rose-600 uppercase">Hết Hàng</div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">Tạm ngưng</span>
+                    </div>
+                    <div className="text-2xl font-extrabold text-rose-700 mt-1">{outOfStockCount}</div>
+                    <span className="text-[10px] text-neutral-400 mt-1 block">
+                      Tồn kho 0 cuốn (hết sạch hàng)
+                    </span>
                   </div>
                 </div>
 
                 {/* Admin Table Controls */}
                 <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden mb-6">
-                  <div className="p-4 border-b border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="p-4 border-b border-neutral-100 flex flex-col md:flex-row items-center justify-between gap-3">
                     {/* Search in Admin */}
-                    <div className="w-full sm:w-72 relative">
+                    <div className="w-full md:w-64 relative">
                       <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
@@ -2986,20 +3085,37 @@ export default function App() {
                       />
                     </div>
 
-                    {/* Category Filter */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                      <span className="text-xs text-neutral-500 shrink-0">Lọc theo:</span>
-                      <select
-                        value={adminCategoryFilter}
-                        onChange={(e) => setAdminCategoryFilter(e.target.value)}
-                        className="w-full sm:w-auto px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-900 text-neutral-800"
-                      >
-                        {categories.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+                      {/* Stock Status Filter */}
+                      <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                        <span className="text-xs text-neutral-500 shrink-0 font-medium">Kho hàng:</span>
+                        <select
+                          value={adminStockFilter}
+                          onChange={(e) => setAdminStockFilter(e.target.value as any)}
+                          className="w-full sm:w-auto px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-900 text-neutral-800 font-medium cursor-pointer"
+                        >
+                          <option value="all">Tất cả kho hàng ({products.length})</option>
+                          <option value="in_stock">🟢 Còn hàng ({inStockCount})</option>
+                          <option value="low_stock">🟡 Sắp hết hàng ({lowStockCount})</option>
+                          <option value="out_of_stock">🔴 Hết hàng ({outOfStockCount})</option>
+                        </select>
+                      </div>
+
+                      {/* Category Filter */}
+                      <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                        <span className="text-xs text-neutral-500 shrink-0 font-medium">Danh mục:</span>
+                        <select
+                          value={adminCategoryFilter}
+                          onChange={(e) => setAdminCategoryFilter(e.target.value)}
+                          className="w-full sm:w-auto px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:border-neutral-900 text-neutral-800 font-medium cursor-pointer"
+                        >
+                          {categories.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -3010,6 +3126,7 @@ export default function App() {
                         <tr className="bg-neutral-50/70 border-b border-neutral-200 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
                           <th className="py-3 px-4">Sản Phẩm</th>
                           <th className="py-3 px-4">Danh Mục</th>
+                          <th className="py-3 px-4">Tồn Kho & Trạng Thái</th>
                           <th className="py-3 px-4">Giá Bán</th>
                           <th className="py-3 px-4">Giá Gốc</th>
                           <th className="py-3 px-4 text-right">Hành Động</th>
@@ -3018,8 +3135,8 @@ export default function App() {
                       <tbody className="divide-y divide-neutral-100">
                         {adminFilteredProducts.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="text-center py-10 text-neutral-400">
-                              Không tìm thấy sản phẩm nào phù hợp.
+                            <td colSpan={6} className="text-center py-10 text-neutral-400">
+                              Không tìm thấy sản phẩm nào phù hợp với bộ lọc.
                             </td>
                           </tr>
                         ) : (
@@ -3049,6 +3166,29 @@ export default function App() {
                                 <span className="px-2 py-0.5 bg-neutral-100 rounded text-[11px] font-medium text-neutral-700">
                                   {product.category}
                                 </span>
+                              </td>
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="font-bold text-neutral-900 text-xs">
+                                    {(product.stockQuantity !== undefined ? product.stockQuantity : 50)} cuốn
+                                  </span>
+                                  {(product.stockQuantity !== undefined ? product.stockQuantity : 50) === 0 ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                      Hết hàng
+                                    </span>
+                                  ) : (product.stockQuantity !== undefined ? product.stockQuantity : 50) <= 10 ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                      Sắp hết (≤ 10)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                      Còn hàng
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-3 px-4 font-bold text-neutral-950">
                                 {formatVND(product.price)}
@@ -3835,12 +3975,12 @@ export default function App() {
                     </div>
 
                     <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs">
-                      <div className="text-[11px] font-semibold text-neutral-400 uppercase">Xu Thưởng Đã Tích</div>
-                      <div className="text-xl sm:text-2xl font-black text-amber-600 mt-1 flex items-center gap-1">
-                        <Coins className="w-5 h-5 text-amber-500" />
-                        <span>{Math.round(totalRevenue * 0.02).toLocaleString("vi-VN")}</span>
+                      <div className="text-[11px] font-semibold text-neutral-400 uppercase">Tổng Sách Đã Bán</div>
+                      <div className="text-xl sm:text-2xl font-black text-indigo-600 mt-1 flex items-center gap-1">
+                        <BookOpen className="w-5 h-5 text-indigo-500" />
+                        <span>{validOrders.reduce((sum, o) => sum + (o.items || []).reduce((s, it) => s + (it.quantity || 1), 0), 0).toLocaleString("vi-VN")} cuốn</span>
                       </div>
-                      <span className="text-[10px] text-neutral-400 mt-1 block">2% giá trị tích lũy cho khách</span>
+                      <span className="text-[10px] text-neutral-400 mt-1 block">Số sách đã giao dịch</span>
                     </div>
                   </div>
 
@@ -4637,6 +4777,51 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Stock Quantity & Realtime Status Preview */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-semibold text-neutral-700">
+                        Số lượng tồn kho (cuốn) *
+                      </label>
+                      <span className="text-[10px] text-neutral-400">Tồn thực tế trong kho</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={formStockQuantity}
+                      onChange={(e) => setFormStockQuantity(e.target.value)}
+                      placeholder="50"
+                      className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:border-neutral-900 focus:bg-white transition-all outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-neutral-700 mb-1">
+                      Trạng thái hiển thị tự động
+                    </label>
+                    <div className="h-[38px] px-3 bg-neutral-50 border border-neutral-200 rounded-xl flex items-center justify-between">
+                      <span className="text-[11px] text-neutral-500">Phân loại:</span>
+                      {Number(formStockQuantity || 0) === 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                          Hết hàng (0 cuốn)
+                        </span>
+                      ) : Number(formStockQuantity || 0) <= 10 ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          Sắp hết hàng (≤ 10 cuốn)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Còn hàng (dồi dào)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Image URL & Preset Samples */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -4994,21 +5179,6 @@ export default function App() {
 
           {/* Right Actions: Customer Auth + Cart */}
           <div className="flex items-center gap-2">
-            {/* Badge Xu BookStore Coins của khách hàng */}
-            {customerUser && (
-              <div
-                onClick={() => {
-                  setIsProfileModalOpen(true);
-                  setProfileTab("coins");
-                }}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                title="Số dư Xu BookStore - Bấm để xem chi tiết ví"
-              >
-                <Coins className="w-3.5 h-3.5 text-amber-600" />
-                <span>{customerCoins.toLocaleString("vi-VN")} Xu</span>
-              </div>
-            )}
-
             {/* Customer User Account Button */}
             {customerUser ? (
               <div className="relative">
@@ -5034,10 +5204,6 @@ export default function App() {
                       <p className="text-[10px] text-neutral-400 truncate mt-0.5">
                         {customerUser.email}
                       </p>
-                      <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
-                        <Coins className="w-3 h-3 text-amber-600" />
-                        <span>Ví: {customerCoins.toLocaleString("vi-VN")} Xu</span>
-                      </div>
                     </div>
                     <button
                       onClick={() => {
@@ -5058,16 +5224,6 @@ export default function App() {
                       className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 cursor-pointer"
                     >
                       <MapPin className="w-3.5 h-3.5 text-blue-600" /> Sổ địa chỉ giao hàng
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsProfileModalOpen(true);
-                        setProfileTab("coins");
-                      }}
-                      className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Coins className="w-3.5 h-3.5 text-amber-600" /> Ví Xu BookStore
                     </button>
                     <button
                       onClick={() => {
@@ -5430,9 +5586,22 @@ export default function App() {
                         </span>
                       </>
                     )}
-                    <span className="ml-auto text-[11px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60">
-                      Tồn kho: {selectedProduct.stockQuantity ?? 50} cuốn sẵn sàng giao
-                    </span>
+                    {(selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : 50) === 0 ? (
+                      <span className="ml-auto text-[11px] text-rose-700 font-bold bg-rose-50 px-2.5 py-0.5 rounded border border-rose-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        Tạm hết hàng
+                      </span>
+                    ) : (selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : 50) <= 10 ? (
+                      <span className="ml-auto text-[11px] text-amber-800 font-bold bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Chỉ còn {selectedProduct.stockQuantity ?? 50} cuốn trong kho!
+                      </span>
+                    ) : (
+                      <span className="ml-auto text-[11px] text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Tồn kho: {selectedProduct.stockQuantity ?? 50} cuốn sẵn sàng giao
+                      </span>
+                    )}
                   </div>
 
                   {/* Thông tin xuất bản & quy cách */}
@@ -5503,22 +5672,32 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
+                      disabled={(selectedProduct.stockQuantity ?? 50) === 0}
                       onClick={() => addToCart(selectedProduct, selectedColor, modalQuantity)}
-                      className="py-3 px-4 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                      className={`py-3 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-2xs ${
+                        (selectedProduct.stockQuantity ?? 50) === 0
+                          ? "bg-neutral-100 text-neutral-400 cursor-not-allowed border border-neutral-200"
+                          : "bg-neutral-100 hover:bg-neutral-200 text-neutral-900 cursor-pointer"
+                      }`}
                     >
                       <ShoppingCart className="w-4 h-4 text-neutral-800" />
-                      <span>Thêm vào giỏ hàng</span>
+                      <span>{(selectedProduct.stockQuantity ?? 50) === 0 ? "Tạm hết hàng" : "Thêm vào giỏ hàng"}</span>
                     </button>
                     <button
                       type="button"
+                      disabled={(selectedProduct.stockQuantity ?? 50) === 0}
                       onClick={() => {
                         addToCart(selectedProduct, selectedColor, modalQuantity);
                         setIsCartOpen(true);
                       }}
-                      className="py-3 px-4 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                      className={`py-3 px-4 text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 ${
+                        (selectedProduct.stockQuantity ?? 50) === 0
+                          ? "bg-neutral-300 text-neutral-500 cursor-not-allowed"
+                          : "bg-neutral-950 hover:bg-neutral-800 text-white cursor-pointer"
+                      }`}
                     >
-                      <span>Mua ngay giao tận nơi</span>
-                      <ChevronRight className="w-4 h-4" />
+                      <span>{(selectedProduct.stockQuantity ?? 50) === 0 ? "Đang chờ nhập sách" : "Mua ngay giao tận nơi"}</span>
+                      {(selectedProduct.stockQuantity ?? 50) > 0 && <ChevronRight className="w-4 h-4" />}
                     </button>
                   </div>
 
@@ -6581,19 +6760,6 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={() => setProfileTab("coins")}
-                className={`pb-2.5 px-3 font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  profileTab === "coins"
-                    ? "border-amber-600 text-amber-900"
-                    : "border-transparent text-neutral-500 hover:text-amber-800"
-                }`}
-              >
-                <Coins className="w-3.5 h-3.5 text-amber-600" />
-                <span>Ví Xu ({customerCoins.toLocaleString("vi-VN")})</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setProfileTab("password")}
                 className={`pb-2.5 px-3 font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
                   profileTab === "password"
@@ -6755,7 +6921,7 @@ export default function App() {
                           required
                           value={newAddrRecipient}
                           onChange={(e) => setNewAddrRecipient(e.target.value)}
-                          placeholder="VD: Đinh Ngọc Thế Nhân..."
+                          placeholder="VD: Nguyễn Văn A..."
                           className="w-full px-3 py-1.5 text-xs bg-white border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900"
                         />
                       </div>
@@ -6768,7 +6934,7 @@ export default function App() {
                           required
                           value={newAddrPhone}
                           onChange={(e) => setNewAddrPhone(e.target.value)}
-                          placeholder="VD: 0917 714 595..."
+                          placeholder="VD: 0912 345 678..."
                           className="w-full px-3 py-1.5 text-xs bg-white border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900"
                         />
                       </div>
@@ -6783,7 +6949,7 @@ export default function App() {
                         required
                         value={newAddrDetail}
                         onChange={(e) => setNewAddrDetail(e.target.value)}
-                        placeholder="VD: KTX Khu B ĐHQG, Phường Linh Trung, TP. Thủ Đức, TP.HCM"
+                        placeholder="VD: Số 123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM"
                         className="w-full px-3 py-1.5 text-xs bg-white border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900"
                       />
                     </div>
@@ -6810,58 +6976,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* TAB 3: VÍ XU BOOKSTORE COINS */}
-              {profileTab === "coins" && (
-                <div className="space-y-5">
-                  {/* Thẻ Card Xu Vàng */}
-                  <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Coins className="w-6 h-6 text-yellow-200" />
-                          <span className="font-extrabold text-sm tracking-wider uppercase text-yellow-100">
-                            BookStore Loyalty Coins
-                          </span>
-                        </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 backdrop-blur-sm text-white">
-                          Tỷ lệ: 1 Xu = 1 VNĐ
-                        </span>
-                      </div>
-                      <div className="text-3xl sm:text-4xl font-black tracking-tight mb-1 text-white">
-                        {customerCoins.toLocaleString("vi-VN")} <span className="text-lg font-bold">Xu</span>
-                      </div>
-                      <p className="text-yellow-100 text-xs">
-                        Tương đương giá trị thanh toán: <strong>{formatVND(customerCoins)}</strong>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Quyền lợi tích xu */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1.5">
-                      <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4 text-amber-500" />
-                        <span>Tích Lũy 2% Mỗi Đơn Hàng</span>
-                      </div>
-                      <p className="text-neutral-600 text-[11px] leading-relaxed">
-                        Mỗi lần mua sắm hoàn tất tại BookStore, bạn được tự động tích lũy ngay 2% tổng tiền đơn hàng thành Xu thưởng vào ví.
-                      </p>
-                    </div>
-
-                    <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1.5">
-                      <div className="font-bold text-neutral-900 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Trừ Tiền Trực Tiếp Lúc Mua</span>
-                      </div>
-                      <p className="text-neutral-600 text-[11px] leading-relaxed">
-                        Chỉ cần tick chọn &ldquo;Dùng Xu BookStore&rdquo; trong giỏ hàng, số tiền thanh toán sẽ được trừ thẳng không giới hạn min/max.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 4: ĐỔI MẬT KHẨU */}
+              {/* TAB 3: ĐỔI MẬT KHẨU */}
               {profileTab === "password" && (
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
                   <div>
@@ -7359,49 +7474,12 @@ export default function App() {
                         <span>-{formatVND(couponDiscountAmount)}</span>
                       </div>
                     )}
-                    {coinsDeduction > 0 && (
-                      <div className="flex justify-between text-amber-700 font-medium">
-                        <span className="flex items-center gap-1">
-                          <Coins className="w-3 h-3 text-amber-600" /> Trừ Xu BookStore:
-                        </span>
-                        <span>-{formatVND(coinsDeduction)}</span>
-                      </div>
-                    )}
                     <div className="flex justify-between text-neutral-500 text-[11px]">
                       <span>Phí vận chuyển:</span>
                       <span className="text-emerald-600 font-semibold">Miễn phí</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Hộp thoại Dùng Xu BookStore Coins */}
-                {customerUser && customerCoins > 0 && (
-                  <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/90 text-xs flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <Coins className="w-4 h-4 text-amber-600 shrink-0" />
-                      <div>
-                        <div className="font-bold text-amber-950 flex items-center gap-1.5">
-                          <span>Dùng Xu BookStore</span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200/80 text-amber-900 font-extrabold">
-                            Có {customerCoins.toLocaleString("vi-VN")} Xu
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-amber-700 mt-0.5">
-                          Áp dụng giảm tối đa {formatVND(maxCoinsUsable)} cho đơn này
-                        </p>
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isUsingCoins}
-                        onChange={(e) => setIsUsingCoins(e.target.checked)}
-                        className="w-4 h-4 rounded text-amber-600 focus:ring-0 border-amber-300 cursor-pointer"
-                      />
-                      <span className="text-xs font-bold text-amber-900">Dùng xu</span>
-                    </label>
-                  </div>
-                )}
 
                 <div className="flex justify-between items-center text-xs font-bold text-neutral-900 pb-2 border-b border-neutral-200">
                   <span>Tổng tiền thanh toán:</span>
@@ -7646,18 +7724,7 @@ export default function App() {
                       ...prev,
                     ]);
 
-                    // Tính Xu tích lũy mới (2% giá trị thực trả) và cập nhật số dư Xu
-                    const earnedCoins = Math.round(finalPayableAmount * 0.02);
-                    const updatedCoins = Math.max(0, customerCoins - coinsDeduction + earnedCoins);
-                    setCustomerCoins(updatedCoins);
-                    localStorage.setItem("bookstore_coins_current", String(updatedCoins));
-                    setIsUsingCoins(false);
-
-                    showToast(
-                      `🎉 Đặt mua sách thành công! Mã đơn: ${newOrderId}.${
-                        earnedCoins > 0 ? ` Bạn được tích lũy +${earnedCoins.toLocaleString("vi-VN")} Xu!` : ""
-                      }`
-                    );
+                    showToast(`🎉 Đặt mua sách thành công! Mã đơn: ${newOrderId}`);
                     setCart([]);
                     setAppliedCoupon(null);
                     setCheckoutPhone("");
