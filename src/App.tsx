@@ -1390,6 +1390,8 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMyOrdersOpen, setIsMyOrdersOpen] = useState(false);
+  const [expandedTrackingOrderId, setExpandedTrackingOrderId] = useState<string | null>(null);
+  const [myOrdersSearchQuery, setMyOrdersSearchQuery] = useState<string>("");
   const [checkoutPhone, setCheckoutPhone] = useState("");
   const [checkoutAddress, setCheckoutAddress] = useState("");
   const [checkoutNote, setCheckoutNote] = useState("");
@@ -1407,36 +1409,56 @@ export default function App() {
     return targetEmail ? `bookstore_addresses_${targetEmail.toLowerCase()}` : "bookstore_addresses";
   };
 
+  // Hàm lọc bỏ hoàn toàn các địa chỉ mẫu thử nghiệm hardcoded (Đinh Ngọc Thế Nhân / KTX Khu B)
+  const filterOutLegacyMockAddresses = (list: AddressItem[]): AddressItem[] => {
+    if (!Array.isArray(list)) return [];
+    return list.filter((a) => {
+      const name = a.recipientName || "";
+      const detail = a.addressDetail || "";
+      const isMock =
+        name.includes("Thế Nhân") ||
+        name.includes("Đinh Ngọc") ||
+        detail.includes("Khu Công nghệ cao") ||
+        detail.includes("KTX Khu B") ||
+        a.id === "ADDR-1" ||
+        a.id === "ADDR-2";
+      return !isMock;
+    });
+  };
+
   // Sổ địa chỉ giao hàng của khách - Khởi tạo mặc định là mảng rỗng [] (không có dữ liệu giả lập có sẵn)
   const [customerAddresses, setCustomerAddresses] = useState<AddressItem[]>(() => {
     if (typeof window !== "undefined") {
-      // Dọn sạch dữ liệu cũ hardcoded nếu còn sót lại trong cache
-      const legacy = localStorage.getItem("bookstore_addresses");
-      if (legacy && (legacy.includes("Đinh Ngọc Thế Nhân") || legacy.includes("ADDR-1"))) {
-        localStorage.removeItem("bookstore_addresses");
-      }
-      const saved = localStorage.getItem("bookstore_addresses");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          return Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-          console.error("Lỗi parse địa chỉ ban đầu:", e);
-        }
+      try {
+        // Quét dọn toàn bộ các key bookstore_addresses có chứa dữ liệu mẫu cũ
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith("bookstore_addresses")) {
+            const raw = localStorage.getItem(key);
+            if (raw && (raw.includes("Thế Nhân") || raw.includes("ADDR-1") || raw.includes("KTX Khu B"))) {
+              try {
+                const arr = JSON.parse(raw);
+                const cleaned = filterOutLegacyMockAddresses(arr);
+                if (cleaned.length === 0) {
+                  localStorage.removeItem(key);
+                } else {
+                  localStorage.setItem(key, JSON.stringify(cleaned));
+                }
+              } catch {
+                localStorage.removeItem(key);
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Lỗi dọn dẹp địa chỉ mẫu:", e);
       }
     }
-    return []; // Mặc định sổ địa chỉ hoàn toàn trống rỗng
+    return []; // Mặc định sổ địa chỉ hoàn toàn trống rỗng khi người dùng chưa tự nhập
   });
 
   // Tự động tải sổ địa chỉ theo từng tài khoản khi khách hàng đăng nhập/thay đổi
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    // Quét sạch cache cũ nếu chứa thông tin mẫu hardcoded
-    const legacy = localStorage.getItem("bookstore_addresses");
-    if (legacy && (legacy.includes("Đinh Ngọc Thế Nhân") || legacy.includes("ADDR-1"))) {
-      localStorage.removeItem("bookstore_addresses");
-    }
 
     if (customerUser?.email) {
       const userKey = `bookstore_addresses_${customerUser.email.toLowerCase()}`;
@@ -1444,7 +1466,15 @@ export default function App() {
       if (savedUserAddrs) {
         try {
           const parsed = JSON.parse(savedUserAddrs);
-          setCustomerAddresses(Array.isArray(parsed) ? parsed : []);
+          const cleaned = filterOutLegacyMockAddresses(Array.isArray(parsed) ? parsed : []);
+          if (cleaned.length !== (Array.isArray(parsed) ? parsed.length : 0)) {
+            if (cleaned.length === 0) {
+              localStorage.removeItem(userKey);
+            } else {
+              localStorage.setItem(userKey, JSON.stringify(cleaned));
+            }
+          }
+          setCustomerAddresses(cleaned);
           return;
         } catch (e) {
           console.error("Lỗi parse sổ địa chỉ tài khoản:", e);
@@ -5254,16 +5284,6 @@ export default function App() {
                       <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Sách yêu thích ({wishlist.length})
                     </button>
                     <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setTrackingError(null);
-                        setIsOrderTrackingOpen(true);
-                      }}
-                      className="w-full px-3.5 py-2 text-left text-xs text-neutral-700 hover:bg-neutral-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Truck className="w-3.5 h-3.5 text-indigo-600" /> Tra cứu vận đơn
-                    </button>
-                    <button
                       onClick={handleCustomerLogout}
                       className="w-full px-3.5 py-2 text-left text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer border-t border-neutral-100"
                     >
@@ -5285,17 +5305,31 @@ export default function App() {
               </button>
             )}
 
-            {/* Nút Tra cứu đơn hàng trên Header */}
+            {/* Nút Đơn hàng của tôi trên Header (Hợp nhất theo yêu cầu) */}
             <button
               onClick={() => {
                 setTrackingError(null);
-                setIsOrderTrackingOpen(true);
+                setMyOrdersSearchQuery("");
+                setIsMyOrdersOpen(true);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-800 text-xs font-semibold transition-all cursor-pointer"
-              title="Tra cứu tiến trình vận đơn"
+              title="Xem danh sách đơn hàng & theo dõi tiến trình vận đơn"
             >
-              <Truck className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline">Tra cứu đơn</span>
+              <Package className="w-4 h-4 text-indigo-600" />
+              <span className="hidden sm:inline">Đơn hàng của tôi</span>
+              {customerUser && (
+                (() => {
+                  const myCount = orders.filter((o) =>
+                    (customerUser.email && o.customerEmail?.toLowerCase() === customerUser.email.toLowerCase()) ||
+                    (o.userId && o.userId === customerUser.id)
+                  ).length;
+                  return myCount > 0 ? (
+                    <span className="bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-4 text-center">
+                      {myCount}
+                    </span>
+                  ) : null;
+                })()
+              )}
             </button>
 
             {/* Wishlist Button (Sản phẩm yêu thích) */}
@@ -5369,8 +5403,9 @@ export default function App() {
                             );
                             if (n.type === 'order') {
                               setIsNotificationOpen(false);
-                              handleTrackOrder('DH-1001');
-                              setIsOrderTrackingOpen(true);
+                              setMyOrdersSearchQuery('DH-1001');
+                              setExpandedTrackingOrderId('DH-1001');
+                              setIsMyOrdersOpen(true);
                             }
                           }}
                           className={`p-3 transition-colors cursor-pointer flex gap-2.5 ${
@@ -6248,6 +6283,13 @@ export default function App() {
                         </span>
                       )}
 
+                      {/* Badge Hết hàng trên ảnh bìa nếu tồn kho bằng 0 */}
+                      {(product.stockQuantity ?? 50) === 0 && (
+                        <span className="absolute bottom-2 left-2 z-10 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white shadow-sm flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white"></span> Hết hàng
+                        </span>
+                      )}
+
                       {/* Nút yêu thích sản phẩm */}
                       <button
                         type="button"
@@ -6270,7 +6312,9 @@ export default function App() {
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
+                          (product.stockQuantity ?? 50) === 0 ? "opacity-75 grayscale-[20%]" : ""
+                        }`}
                       />
                       <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span className="bg-white/90 backdrop-blur-sm text-neutral-900 text-[11px] font-semibold px-3 py-1.5 rounded-full shadow flex items-center gap-1">
@@ -6309,12 +6353,34 @@ export default function App() {
                               {formatVND(product.originalPrice)}
                             </div>
                           )}
+
+                          {/* Trạng thái tồn kho ở góc dưới sản phẩm */}
+                          <div className="mt-1 flex items-center">
+                            {(product.stockQuantity ?? 50) === 0 ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Hết hàng
+                              </span>
+                            ) : (product.stockQuantity ?? 50) <= 10 ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Sắp hết ({product.stockQuantity ?? 50})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Còn hàng
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <button
+                          disabled={(product.stockQuantity ?? 50) === 0}
                           onClick={(e) => handleQuickAdd(e, product)}
-                          className="p-2 rounded-lg bg-neutral-100 hover:bg-neutral-900 hover:text-white text-neutral-700 transition-all cursor-pointer"
-                          title="Thêm nhanh vào giỏ"
+                          className={`p-2 rounded-lg transition-all ${
+                            (product.stockQuantity ?? 50) === 0
+                              ? "bg-neutral-100 text-neutral-300 cursor-not-allowed opacity-50"
+                              : "bg-neutral-100 hover:bg-neutral-900 hover:text-white text-neutral-700 cursor-pointer shadow-2xs"
+                          }`}
+                          title={(product.stockQuantity ?? 50) === 0 ? "Sách tạm hết hàng" : "Thêm nhanh vào giỏ"}
                         >
                           <ShoppingCart className="w-3.5 h-3.5" />
                         </button>
@@ -7035,33 +7101,35 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* ================= MODAL: ĐƠN HÀNG CỦA TÔI & TRA CỨU TIẾN TRÌNH VẬN ĐƠN (HỢP NHẤT) ================= */}
       {isMyOrdersOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             onClick={() => setIsMyOrdersOpen(false)}
-            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm animate-in fade-in"
           ></div>
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 border border-neutral-200 flex flex-col max-h-[88vh]">
+          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 border border-neutral-200 flex flex-col max-h-[90vh]">
             {/* Header */}
-            <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+            <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
                   <Package className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-neutral-950">
+                  <h3 className="text-sm sm:text-base font-bold text-neutral-950">
                     Đơn hàng của tôi
                   </h3>
                   <p className="text-[11px] text-neutral-500">
                     {customerUser
-                      ? `${customerUser.name} (${customerUser.email})`
-                      : "Theo dõi tình trạng đơn hàng của bạn"}
+                      ? `${customerUser.name} (${customerUser.email}) — Lịch sử mua hàng & Theo dõi bưu kiện`
+                      : "Tra cứu tiến trình bưu kiện & Lịch sử mua hàng trực tiếp"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsMyOrdersOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-neutral-200/60 text-neutral-400 hover:text-neutral-700 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-neutral-200/60 text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
+                title="Đóng"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -7069,49 +7137,104 @@ export default function App() {
 
             {/* Content */}
             <div className="overflow-y-auto p-4 sm:p-6 space-y-4 flex-1">
-              {!customerUser ? (
-                <div className="text-center py-10 px-4">
-                  <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto mb-3">
-                    <User className="w-6 h-6" />
-                  </div>
-                  <h4 className="text-sm font-bold text-neutral-900 mb-1">
-                    Bạn chưa đăng nhập
-                  </h4>
-                  <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-4">
-                    Vui lòng đăng nhập vào tài khoản để xem lịch sử mua sắm và theo dõi tình trạng đơn hàng của mình.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setIsMyOrdersOpen(false);
-                      setAuthMode("login");
-                      setIsAuthModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
-                  >
-                    Đăng nhập ngay
-                  </button>
+              {/* Thanh tra cứu nhanh theo Mã đơn hoặc Số điện thoại */}
+              <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200/90 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-neutral-500 font-medium px-0.5">
+                  <span className="flex items-center gap-1 text-neutral-700 font-bold">
+                    <Search className="w-3.5 h-3.5 text-indigo-600" /> Tra cứu nhanh đơn hàng:
+                  </span>
+                  <span>Nhập mã đơn hoặc số điện thoại</span>
                 </div>
-              ) : (() => {
-                const myOrders = orders.filter((o) =>
-                  (customerUser.email && o.customerEmail?.toLowerCase() === customerUser.email.toLowerCase()) ||
-                  (o.userId && o.userId === customerUser.id)
-                );
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="text"
+                      value={myOrdersSearchQuery}
+                      onChange={(e) => setMyOrdersSearchQuery(e.target.value)}
+                      placeholder="Nhập mã đơn (VD: DH-1001) hoặc số điện thoại người nhận..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-900 bg-white"
+                    />
+                  </div>
+                  {myOrdersSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setMyOrdersSearchQuery("")}
+                      className="px-3 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer shrink-0"
+                    >
+                      Xóa lọc
+                    </button>
+                  )}
+                </div>
+              </div>
 
-                if (myOrders.length === 0) {
+              {(() => {
+                const q = myOrdersSearchQuery.trim().toLowerCase();
+                let baseOrders: Order[] = [];
+                if (customerUser) {
+                  baseOrders = orders.filter(
+                    (o) =>
+                      (customerUser.email && o.customerEmail?.toLowerCase() === customerUser.email.toLowerCase()) ||
+                      (o.userId && o.userId === customerUser.id)
+                  );
+                }
+
+                // Nếu có từ khóa tìm kiếm (theo mã đơn hoặc SĐT)
+                let displayOrders = baseOrders;
+                if (q) {
+                  displayOrders = orders.filter(
+                    (o) =>
+                      o.id?.toLowerCase().includes(q) ||
+                      (o.customerPhone && o.customerPhone.includes(q)) ||
+                      (o.customerName && o.customerName.toLowerCase().includes(q))
+                  );
+                }
+
+                if (!customerUser && !q) {
                   return (
-                    <div className="text-center py-12 px-4">
-                      <div className="w-14 h-14 rounded-2xl bg-neutral-100 text-neutral-300 flex items-center justify-center mx-auto mb-3">
-                        <Package className="w-7 h-7" />
+                    <div className="text-center py-8 px-4 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                        <Truck className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-bold text-neutral-900">
+                        Tra Cứu Tiến Trình Vận Đơn Nhanh
+                      </h4>
+                      <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+                        Vui lòng nhập <strong>Mã đơn hàng</strong> (VD: DH-1001) hoặc <strong>Số điện thoại</strong> vào ô tra cứu ở trên để xem ngay tiến trình bưu kiện của bạn!
+                      </p>
+                      <div className="pt-2">
+                        <button
+                          onClick={() => {
+                            setIsMyOrdersOpen(false);
+                            setAuthMode("login");
+                            setIsAuthModalOpen(true);
+                          }}
+                          className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+                        >
+                          Đăng nhập để xem toàn bộ lịch sử đơn hàng
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (displayOrders.length === 0) {
+                  return (
+                    <div className="text-center py-10 px-4">
+                      <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto mb-3">
+                        <Package className="w-6 h-6" />
                       </div>
                       <h4 className="text-sm font-bold text-neutral-900 mb-1">
-                        Chưa có đơn hàng nào
+                        Không tìm thấy đơn hàng nào
                       </h4>
                       <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-4">
-                        Tài khoản <strong>{customerUser.email}</strong> hiện chưa có đơn hàng nào. Hãy khám phá và mua sắm các sản phẩm công nghệ của chúng tôi!
+                        {q
+                          ? `Không có đơn hàng nào khớp với từ khóa "${myOrdersSearchQuery}". Vui lòng kiểm tra lại mã đơn hoặc số điện thoại.`
+                          : `Tài khoản ${customerUser?.email} hiện chưa có đơn hàng nào.`}
                       </p>
                       <button
                         onClick={() => setIsMyOrdersOpen(false)}
-                        className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                        className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
                       >
                         Khám phá sản phẩm
                       </button>
@@ -7122,10 +7245,13 @@ export default function App() {
                 return (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-xs text-neutral-500 px-1">
-                      <span>Bạn có tổng cộng <strong>{myOrders.length}</strong> đơn hàng</span>
+                      <span>
+                        Hiển thị <strong>{displayOrders.length}</strong> đơn hàng
+                        {q && ` khớp với từ khóa "${myOrdersSearchQuery}"`}
+                      </span>
                     </div>
 
-                    {myOrders.map((order) => {
+                    {displayOrders.map((order) => {
                       const statusConfig = {
                         pending: {
                           label: "Chờ xử lý",
@@ -7171,7 +7297,7 @@ export default function App() {
                                 </span>
                               </div>
                               <p className="text-[10px] text-neutral-400 mt-1 flex items-center gap-1">
-                                <Calendar className="w-3 h-3" /> {order.createdAt}
+                                <Calendar className="w-3 h-3" /> {order.createdAt || order.orderDate}
                               </p>
                             </div>
                             <div className="text-right">
@@ -7190,7 +7316,7 @@ export default function App() {
                             </div>
                             <div className="flex items-start gap-1.5 text-neutral-600">
                               <MapPin className="w-3 h-3 text-neutral-400 mt-0.5 shrink-0" />
-                              <span>{order.customerAddress || "Địa chỉ nhận hàng toàn quốc"}</span>
+                              <span>{order.customerAddress || order.shippingAddress || "Địa chỉ nhận hàng toàn quốc"}</span>
                             </div>
                             {order.note && (
                               <div className="flex items-start gap-1.5 pt-1.5 border-t border-neutral-200/60 text-neutral-700 italic">
@@ -7239,8 +7365,8 @@ export default function App() {
                             ))}
                           </div>
 
-                          {/* Nút xem chi tiết tiến trình vận chuyển & In hóa đơn */}
-                          <div className="pt-2 border-t border-neutral-100 flex items-center justify-end gap-2">
+                          {/* Nút hành động */}
+                          <div className="pt-2 border-t border-neutral-100 flex items-center justify-end gap-2 flex-wrap">
                             <button
                               type="button"
                               onClick={() => {
@@ -7265,16 +7391,106 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => {
-                                setIsMyOrdersOpen(false);
-                                handleTrackOrder(order.id);
-                                setIsOrderTrackingOpen(true);
+                                if (expandedTrackingOrderId === order.id) {
+                                  setExpandedTrackingOrderId(null);
+                                } else {
+                                  handleTrackOrder(order.id);
+                                  setExpandedTrackingOrderId(order.id);
+                                }
                               }}
-                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all ${
+                                expandedTrackingOrderId === order.id
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700"
+                              }`}
                             >
                               <Truck className="w-3.5 h-3.5" />
-                              <span>Theo dõi vận đơn</span>
+                              <span>{expandedTrackingOrderId === order.id ? "Thu gọn vận trình" : "Theo dõi vận đơn"}</span>
                             </button>
                           </div>
+
+                          {/* Stepper Timeline 4 bước mở rộng trực tiếp trong đơn hàng */}
+                          {expandedTrackingOrderId === order.id && (
+                            <div className="mt-3 p-4 bg-indigo-50/40 rounded-xl border border-indigo-100/90 animate-in fade-in duration-200 text-left">
+                              <h4 className="text-xs font-bold text-neutral-900 mb-4 flex items-center gap-1.5 uppercase tracking-wider">
+                                <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                                Lộ trình vận chuyển bưu kiện #{order.id}:
+                              </h4>
+
+                              <div className="relative pl-6 sm:pl-8 space-y-5 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-neutral-200">
+                                {(trackingTimeline && trackedOrder?.id === order.id
+                                  ? trackingTimeline
+                                  : [
+                                      {
+                                        step: 1,
+                                        title: "Đã tiếp nhận đơn hàng",
+                                        description: "Đơn hàng đã được ghi nhận trên hệ thống BookStore.",
+                                        time: order.createdAt || order.orderDate || "Vừa xong",
+                                        isCompleted: true,
+                                      },
+                                      {
+                                        step: 2,
+                                        title: "Đang đóng gói & chuẩn bị",
+                                        description: "Kho đang kiểm tra chất lượng sách, bọc chống sốc & tặng kèm Bookmark.",
+                                        time: ["shipping", "delivered"].includes(order.status)
+                                          ? "Hoàn tất đóng gói"
+                                          : "Đang chuẩn bị",
+                                        isCompleted: ["shipping", "delivered"].includes(order.status),
+                                      },
+                                      {
+                                        step: 3,
+                                        title: "Đang giao hàng hỏa tốc",
+                                        description: "Đơn vị vận chuyển hỏa tốc đang giao sách tới địa chỉ nhận.",
+                                        time:
+                                          order.status === "delivered"
+                                            ? "Đã giao đến khu vực"
+                                            : order.status === "shipping"
+                                            ? "Đang trên đường giao"
+                                            : "Chờ lấy hàng",
+                                        isCompleted: ["shipping", "delivered"].includes(order.status),
+                                      },
+                                      {
+                                        step: 4,
+                                        title: "Giao hàng thành công",
+                                        description: "Bưu kiện đã được bàn giao an toàn tới tay người nhận.",
+                                        time: order.status === "delivered" ? "Đã nhận hàng" : "Dự kiến 1-2 ngày tới",
+                                        isCompleted: order.status === "delivered",
+                                      },
+                                    ]
+                                ).map((step) => (
+                                  <div key={step.step} className="relative">
+                                    <div
+                                      className={`absolute -left-6 sm:-left-8 top-0.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${
+                                        step.isCompleted
+                                          ? "bg-emerald-500 text-white ring-4 ring-emerald-50"
+                                          : "bg-neutral-100 text-neutral-400 border border-neutral-300"
+                                      }`}
+                                    >
+                                      {step.isCompleted ? <Check className="w-3.5 h-3.5" /> : step.step}
+                                    </div>
+
+                                    <div>
+                                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                        <h5
+                                          className={`text-xs font-bold ${
+                                            step.isCompleted ? "text-neutral-900" : "text-neutral-400"
+                                          }`}
+                                        >
+                                          {step.title}
+                                        </h5>
+                                        <span className="text-[10px] text-neutral-400 font-medium">
+                                          {step.time}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">
+                                        {step.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -7739,8 +7955,9 @@ export default function App() {
                       playChimeSound('notification');
                     } else {
                       playChimeSound('success');
-                      handleTrackOrder(newOrderId);
-                      setIsOrderTrackingOpen(true);
+                      setMyOrdersSearchQuery(newOrderId);
+                      setExpandedTrackingOrderId(newOrderId);
+                      setIsMyOrdersOpen(true);
                     }
                   }}
                   className={`w-full py-3 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-98 cursor-pointer ${
@@ -7958,305 +8175,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= MODAL: ORDER TRACKING (TRA CỨU VẬN ĐƠN) ================= */}
-      {isOrderTrackingOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            onClick={() => setIsOrderTrackingOpen(false)}
-            className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm animate-in fade-in"
-          ></div>
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 border border-neutral-200 flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="p-4 sm:p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                  <Truck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-neutral-900 leading-snug">
-                    Tra Cứu Tiến Trình Vận Đơn
-                  </h3>
-                  <p className="text-xs text-neutral-500">
-                    Kiểm tra lộ trình giao hàng trực tiếp bằng Mã đơn hàng hoặc Số điện thoại
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsOrderTrackingOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-neutral-200/60 text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
-              {/* Thanh tra cứu */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleTrackOrder();
-                }}
-                className="flex gap-2"
-              >
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-                  <input
-                    type="text"
-                    value={trackingQuery}
-                    onChange={(e) => {
-                      setTrackingQuery(e.target.value);
-                      setTrackingError(null);
-                    }}
-                    placeholder="Nhập mã đơn (VD: DH-1001) hoặc số điện thoại người nhận..."
-                    className="w-full pl-9 pr-3 py-2 text-xs border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 bg-white"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={trackingLoading}
-                  className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
-                >
-                  {trackingLoading ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Search className="w-3.5 h-3.5" />
-                  )}
-                  <span>Tra cứu</span>
-                </button>
-              </form>
-
-              {/* Thông báo lỗi nếu không tìm thấy */}
-              {trackingError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>{trackingError}</span>
-                </div>
-              )}
-
-              {/* Chi tiết đơn hàng tra cứu thành công */}
-              {trackedOrder ? (
-                <div className="space-y-4">
-                  {/* Card trạng thái đơn */}
-                  <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-sm text-neutral-950">
-                          #{trackedOrder.id}
-                        </span>
-                        <span
-                          className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                            trackedOrder.status === "delivered"
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                              : trackedOrder.status === "shipping"
-                              ? "bg-blue-50 text-blue-800 border-blue-200"
-                              : trackedOrder.status === "cancelled"
-                              ? "bg-rose-50 text-rose-800 border-rose-200"
-                              : "bg-amber-50 text-amber-800 border-amber-200"
-                          }`}
-                        >
-                          {trackedOrder.status === "delivered"
-                            ? "✅ Đã giao thành công"
-                            : trackedOrder.status === "shipping"
-                            ? "🚚 Đang giao hàng"
-                            : trackedOrder.status === "cancelled"
-                            ? "❌ Đã hủy"
-                            : "🕒 Chờ xử lý & đóng gói"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-neutral-400 mt-1">
-                        Ngày đặt hàng: {trackedOrder.createdAt || trackedOrder.orderDate}
-                      </p>
-                    </div>
-
-                    <div className="text-left sm:text-right">
-                      <span className="text-[10px] text-neutral-400 block">Tổng thanh toán</span>
-                      <span className="text-base font-extrabold text-neutral-950">
-                        {formatVND(trackedOrder.totalAmount)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Visual Stepper Timeline 4 Chặng */}
-                  {trackingTimeline && (
-                    <div className="p-4 bg-white rounded-xl border border-neutral-200/90 shadow-2xs">
-                      <h4 className="text-xs font-bold text-neutral-900 mb-4 flex items-center gap-1.5 uppercase tracking-wider">
-                        <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                        Tiến trình vận chuyển bưu kiện:
-                      </h4>
-
-                      <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-neutral-200">
-                        {trackingTimeline.map((step) => (
-                          <div key={step.step} className="relative">
-                            {/* Chấm tròn biểu tượng */}
-                            <div
-                              className={`absolute -left-6 sm:-left-8 top-0.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${
-                                step.isCompleted
-                                  ? "bg-emerald-500 text-white ring-4 ring-emerald-50"
-                                  : "bg-neutral-100 text-neutral-400 border border-neutral-300"
-                              }`}
-                            >
-                              {step.isCompleted ? <Check className="w-3.5 h-3.5" /> : step.step}
-                            </div>
-
-                            <div>
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                <h5
-                                  className={`text-xs font-bold ${
-                                    step.isCompleted ? "text-neutral-900" : "text-neutral-400"
-                                  }`}
-                                >
-                                  {step.title}
-                                </h5>
-                                <span className="text-[10px] text-neutral-400 font-medium">
-                                  {step.time}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">
-                                {step.description}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Thông tin người nhận */}
-                  <div className="p-3.5 bg-neutral-50/70 rounded-xl border border-neutral-200/70 text-xs space-y-1.5">
-                    <h5 className="font-bold text-neutral-800 text-[11px] uppercase tracking-wider mb-1">
-                      Địa chỉ nhận hàng:
-                    </h5>
-                    <div className="flex items-center gap-2 text-neutral-700">
-                      <User className="w-3.5 h-3.5 text-neutral-400" />
-                      <span>{trackedOrder.customerName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-neutral-700">
-                      <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                      <span>{trackedOrder.customerPhone || "Chưa cung cấp"}</span>
-                    </div>
-                    <div className="flex items-start gap-2 text-neutral-700">
-                      <MapPin className="w-3.5 h-3.5 text-neutral-400 mt-0.5 shrink-0" />
-                      <span>{trackedOrder.customerAddress || trackedOrder.shippingAddress || "Toàn quốc"}</span>
-                    </div>
-                    {trackedOrder.note && (
-                      <div className="flex items-start gap-2 text-neutral-500 text-[11px] pt-1 border-t border-neutral-200/60">
-                        <FileText className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                        <span>Ghi chú: {trackedOrder.note}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Danh sách các cuốn sách trong đơn */}
-                  <div className="space-y-2">
-                    <h5 className="text-[11px] font-bold text-neutral-800 uppercase tracking-wider">
-                      Các cuốn sách trong kiện hàng ({(trackedOrder.items || []).length}):
-                    </h5>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {(trackedOrder.items || []).map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2.5 bg-white border border-neutral-200 rounded-xl text-xs gap-3"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {item.image || item.imageUrl ? (
-                              <img
-                                src={item.image || item.imageUrl}
-                                alt={item.name || item.title}
-                                className="w-10 h-12 object-cover rounded bg-neutral-100 shrink-0 border border-neutral-200"
-                              />
-                            ) : (
-                              <div className="w-10 h-12 bg-neutral-100 rounded flex items-center justify-center shrink-0">
-                                <BookOpen className="w-4 h-4 text-neutral-400" />
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <h6 className="font-bold text-neutral-900 truncate">
-                                {item.name || item.title}
-                              </h6>
-                              <p className="text-[10px] text-neutral-400 mt-0.5">
-                                Bản: {item.selectedColor || "Bìa mềm chuẩn"} • SL: {item.quantity}
-                              </p>
-                            </div>
-                          </div>
-                          <span className="font-extrabold text-neutral-900 shrink-0">
-                            {formatVND((item.price || item.unitPrice || 0) * item.quantity)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Chi tiết tài chính */}
-                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/70 text-xs space-y-1 text-neutral-600">
-                    <div className="flex justify-between">
-                      <span>Tạm tính tiền sách:</span>
-                      <span className="font-semibold text-neutral-900">
-                        {formatVND(trackedOrder.totalBookAmount || trackedOrder.totalAmount)}
-                      </span>
-                    </div>
-                    {trackedOrder.discountAmount && trackedOrder.discountAmount > 0 && (
-                      <div className="flex justify-between text-emerald-600 font-medium">
-                        <span>Giảm giá voucher {trackedOrder.couponCode ? `(${trackedOrder.couponCode})` : ""}:</span>
-                        <span>-{formatVND(trackedOrder.discountAmount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-neutral-500 text-[11px]">
-                      <span>Phí vận chuyển:</span>
-                      <span className="text-emerald-600 font-semibold">Miễn phí giao hỏa tốc</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-bold text-neutral-950 pt-1.5 border-t border-neutral-200">
-                      <span>Tổng tiền đã thanh toán:</span>
-                      <span className="text-sm font-extrabold text-neutral-950">
-                        {formatVND(trackedOrder.totalAmount)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Hướng dẫn khi chưa tra cứu */
-                <div className="text-center py-10 text-neutral-400">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3 shadow-2xs">
-                    <Package className="w-7 h-7" />
-                  </div>
-                  <h4 className="text-sm font-bold text-neutral-700 mb-1">
-                    Nhập mã đơn để kiểm tra tiến trình
-                  </h4>
-                  <p className="text-xs text-neutral-500 max-w-sm mx-auto">
-                    Mã đơn hàng được hiển thị sau khi bạn bấm xác nhận đặt hàng (dạng <strong>DH-1xxx</strong>). Bạn cũng có thể tra cứu nhanh bằng số điện thoại người nhận!
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-neutral-100 bg-neutral-50 flex items-center justify-between gap-2">
-              {trackedOrder ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInvoiceOrder(trackedOrder);
-                    setIsInvoiceModalOpen(true);
-                  }}
-                  className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>In Hóa Đơn / Phiếu Giao</span>
-                </button>
-              ) : <div />}
-              <button
-                type="button"
-                onClick={() => setIsOrderTrackingOpen(false)}
-                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* (Ghi chú: Modal Tra cứu vận đơn riêng rẽ đã được sáp nhập trực tiếp vào Modal "Đơn hàng của tôi" isMyOrdersOpen) */}
 
       {/* ================= MODAL: VIETQR NAPAS PAYMENT ================= */}
       {isVietQRModalOpen && vietQROrder && (
@@ -8403,8 +8322,9 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setIsVietQRModalOpen(false);
-                  handleTrackOrder(vietQROrder.id);
-                  setIsOrderTrackingOpen(true);
+                  setMyOrdersSearchQuery(vietQROrder.id);
+                  setExpandedTrackingOrderId(vietQROrder.id);
+                  setIsMyOrdersOpen(true);
                 }}
                 className="px-3 py-2 rounded-xl border border-neutral-300 text-neutral-700 text-xs font-semibold hover:bg-neutral-100"
               >
@@ -8426,8 +8346,9 @@ export default function App() {
                   playChimeSound('success');
                   showToast("✅ Xác nhận thanh toán VietQR thành công! Đơn hàng đã chuyển sang trạng thái Đã Thanh Toán.");
                   setIsVietQRModalOpen(false);
-                  handleTrackOrder(orderId);
-                  setIsOrderTrackingOpen(true);
+                  setMyOrdersSearchQuery(orderId);
+                  setExpandedTrackingOrderId(orderId);
+                  setIsMyOrdersOpen(true);
                 }}
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-98 cursor-pointer"
               >
